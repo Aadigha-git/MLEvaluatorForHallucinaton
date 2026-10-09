@@ -20,6 +20,7 @@ from hdetect.schema import Example, Label
 
 STRATA = ("dataset", "generator", "label")
 HAND_LABELS = {Label.HALLUCINATED.value, Label.NOT_HALLUCINATED.value}
+UNDECIDABLE = "undecidable"
 BLIND_COLUMNS = (
     "answer_id", "question_id", "dataset", "generator", "question", "answer",
     "correct_refs", "incorrect_refs", "gold_evidence", "gold_label", "hand_label", "notes",
@@ -88,16 +89,21 @@ def write_blind_csv(records: Sequence[dict[str, Any]], examples: Mapping[str, Ex
             )
 
 
-def read_hand_labels(path: str | Path) -> dict[str, str]:
-    """answer_id -> hand label. Blank rows are skipped; anything else unexpected is an error."""
+def read_hand_labels(path: str | Path, *, allow_undecidable: bool = False) -> dict[str, str]:
+    """answer_id -> hand label. Blank rows are skipped; anything else unexpected is an error.
+
+    `undecidable` is accepted only for the unresolved queue, where such answers are excluded and
+    counted; the agreement sample needs a decision for every row.
+    """
+    allowed = HAND_LABELS | {UNDECIDABLE} if allow_undecidable else HAND_LABELS
     labels = {}
     with open(path, newline="", encoding="utf-8") as f:
         for line_no, row in enumerate(csv.DictReader(f), start=2):
             value = (row.get("hand_label") or "").strip().lower()
             if not value:
                 continue
-            if value not in HAND_LABELS:
-                raise ValueError(f"{path}:{line_no}: hand_label must be one of {sorted(HAND_LABELS)}, got {value!r}")
+            if value not in allowed:
+                raise ValueError(f"{path}:{line_no}: hand_label must be one of {sorted(allowed)}, got {value!r}")
             labels[row["answer_id"]] = value
     return labels
 

@@ -16,3 +16,4 @@ logs/
 .tools/
 data/indexes/
 data/features/
+data/labels/

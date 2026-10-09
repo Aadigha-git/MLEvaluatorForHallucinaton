@@ -87,16 +87,21 @@ justification is labeled not hallucinated.
 
 ## Hand labeling and audit
 
-`scripts/audit.py export` writes two CSVs. Neither shows the automatic label, so auditors are not
-anchored by it.
+Automatic labels are written to `data/labels/auto/{split}.jsonl` (git-ignored):
+`scripts/label_answers.py` for `train` and `val_id`, `ml/evaluation/label_test_answers.py` for the
+test splits. Two kinds of blind CSV go to the auditor. Neither shows the automatic label, so
+auditors are not anchored by it.
 
-- `audit_sample_blind.csv`: a random sample of 200 automatically resolved answers, stratified in
-  proportion to dataset × generator × automatic label. Used only to measure agreement.
-- `unresolved_blind.csv`: every unresolved answer. Hand labels from this file become the labels
-  for those answers. They are kept separate from the agreement sample so they do not bias the
-  kappa estimate.
+- `audit_sample_blind.csv` (`ml/evaluation/export_audit_sample.py`): a random sample of 200
+  automatically resolved answers from all splits, stratified in proportion to dataset ×
+  generator × automatic label. Used only to measure agreement.
+- `unresolved_dev_blind.csv` (`scripts/label_answers.py`): every unresolved answer in `train` and
+  `val_id`. Hand labels from this file become the labels for those answers. They are kept
+  separate from the agreement sample so they do not bias the kappa estimate. The test splits'
+  queues are exported separately before the test evaluation.
 
 Auditors apply the same written definitions above, using the references, gold label, and gold
-evidence shown in the CSV, and write `hallucinated` or `not_hallucinated` in `hand_label`.
-`scripts/audit.py score` reports raw agreement and Cohen's kappa, with a 95% bootstrap interval
-that resamples questions. Kappa is reported overall and per dataset.
+evidence shown in the CSV, and write `hallucinated` or `not_hallucinated` in `hand_label`. In the
+unresolved queues only, `undecidable` marks an answer the auditor cannot decide; it is excluded
+and counted. `ml/evaluation/score_audit.py` reports raw agreement and Cohen's kappa, with a 95%
+bootstrap interval that resamples questions, overall and per dataset.
