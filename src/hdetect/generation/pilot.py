@@ -75,8 +75,8 @@ def format_report(rows: Iterable[dict], prices: Mapping[str, tuple[float, float]
             if f"{r['answer_id']}/repeat1" in texts
         ]
         in_price, out_price = prices[generator]
-        prompt_tokens = sum(r["prompt_tokens"] for r in ok)
-        completion_tokens = sum(r["completion_tokens"] for r in ok)
+        prompt_tokens = sum(r["prompt_tokens"] or 0 for r in ok)
+        completion_tokens = sum(r["completion_tokens"] or 0 for r in ok)
         latencies = [r["latency_s"] for r in ok]
         entry = {
             "calls": len(group),
@@ -88,8 +88,8 @@ def format_report(rows: Iterable[dict], prices: Mapping[str, tuple[float, float]
             "finish_reasons": dict(Counter(r["finish_reason"] for r in ok)),
             "empty": sum(1 for r in ok if not r["text"].strip()),
             "think_tags": sum(1 for r in ok if "<think>" in r["text"]),
-            "completion_tokens_mean": round(statistics.mean(r["completion_tokens"] for r in ok), 1) if ok else None,
-            "completion_tokens_max": max((r["completion_tokens"] for r in ok), default=None),
+            "completion_tokens_mean": round(statistics.mean(r["completion_tokens"] or 0 for r in ok), 1) if ok else None,
+            "completion_tokens_max": max((r["completion_tokens"] or 0 for r in ok), default=None),
             "greedy_repeat_identical": f"{sum(a == b for a, b in repeat_pairs)}/{len(repeat_pairs)}",
             "latency_s_p50": _quantile(latencies, 0.5),
             "latency_s_p95": _quantile(latencies, 0.95),

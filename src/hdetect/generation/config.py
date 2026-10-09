@@ -10,6 +10,9 @@ from hdetect.config import PREREGISTERED_RESAMPLE_N, SPLIT_ROLES, ConfigError, c
 from hdetect.generation.prompts import PROMPTS
 from hdetect.schema import DATASETS
 
+PREREGISTERED_MAX_ATTEMPTS = 5
+PREREGISTERED_BUDGET_USD = 1.0
+
 
 @dataclass(frozen=True)
 class ApiConfig:
@@ -45,6 +48,12 @@ class Sampling:
 
 
 @dataclass(frozen=True)
+class RunConfig:
+    max_attempts: int
+    budget_usd: float
+
+
+@dataclass(frozen=True)
 class PilotConfig:
     seed: int
     questions: dict[str, int]
@@ -61,8 +70,15 @@ class GenerationConfig:
     primary: Sampling
     resample: Sampling
     resample_n: int
+    run: RunConfig
     pilot: PilotConfig
     hash: str
+
+    def prices(self) -> dict[str, tuple[float, float]]:
+        return {
+            name: (g.usd_per_million_input_tokens, g.usd_per_million_output_tokens)
+            for name, g in self.generators.items()
+        }
 
 
 def load_generation_config(path: str | Path) -> GenerationConfig:
@@ -80,6 +96,7 @@ def parse_generation_config(raw: dict[str, Any]) -> GenerationConfig:
             primary=Sampling(**raw["primary"]),
             resample=Sampling(**{k: v for k, v in raw["resample"].items() if k != "n"}),
             resample_n=int(raw["resample"]["n"]),
+            run=RunConfig(**raw["run"]),
             pilot=PilotConfig(**raw["pilot"]),
             hash=config_hash(raw),
         )
@@ -110,5 +127,9 @@ def _validate(cfg: GenerationConfig) -> None:
         raise ConfigError(f"resample n is pre-registered as {PREREGISTERED_RESAMPLE_N}")
     if cfg.api.concurrency < 1 or cfg.api.max_retries < 0:
         raise ConfigError("api.concurrency must be >= 1 and api.max_retries >= 0")
+    if cfg.run.max_attempts != PREREGISTERED_MAX_ATTEMPTS:
+        raise ConfigError(f"max_attempts is pre-registered as {PREREGISTERED_MAX_ATTEMPTS}")
+    if cfg.run.budget_usd != PREREGISTERED_BUDGET_USD:
+        raise ConfigError(f"the budget cap is pre-registered as ${PREREGISTERED_BUDGET_USD}; raise it by amendment")
     if set(cfg.pilot.questions) - set(DATASETS):
         raise ConfigError("pilot.questions has an unknown dataset")

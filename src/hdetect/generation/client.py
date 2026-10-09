@@ -14,8 +14,8 @@ class Completion:
     response_id: str | None
     model: str | None
     system_fingerprint: str | None
-    prompt_tokens: int
-    completion_tokens: int
+    prompt_tokens: int | None
+    completion_tokens: int | None
 
 
 class ChatClient(Protocol):
@@ -66,6 +66,6 @@ class OpenAICompatibleClient:
             response_id=getattr(response, "id", None),
             model=getattr(response, "model", None),
             system_fingerprint=getattr(response, "system_fingerprint", None),
-            prompt_tokens=getattr(usage, "prompt_tokens", 0) or 0,
-            completion_tokens=getattr(usage, "completion_tokens", 0) or 0,
+            prompt_tokens=getattr(usage, "prompt_tokens", None),
+            completion_tokens=getattr(usage, "completion_tokens", None),
         )

@@ -126,14 +126,14 @@ def test_run_records_errors_and_resumes(tmp_path, gen):
     out = tmp_path / "out.jsonl"
     failing = FakeClient(fail_on={render("qa-v1", b)})
     counts = run_requests(plan, failing, out)
-    assert counts == {"skipped": 0, "ok": 6, "error": 6}
+    assert counts == {"skipped": 0, "ok": 6, "error": 6, "not_started": 0}
     rows = load_results(out)
     assert {r["status"] for r in rows.values()} == {"ok", "error"}
     assert all(r["error"].startswith("RuntimeError") for r in rows.values() if r["status"] == "error")
 
     retry = FakeClient()
     counts = run_requests(plan, retry, out, concurrency=4)
-    assert counts == {"skipped": 6, "ok": 6, "error": 0}
+    assert counts == {"skipped": 6, "ok": 6, "error": 0, "not_started": 0}
     assert len(retry.calls) == 6
     rows = load_results(out)
     assert all(r["status"] == "ok" for r in rows.values())
