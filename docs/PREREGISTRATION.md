@@ -616,3 +616,40 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
     - Labels are stored per rule version under `data/labels/v{version}/`. Training reads version 2
       labels only and checks the version. The version 1 dev unresolved queue, which had no hand
       labels, is superseded by the version 2 queue.
+- **2026-10-09, fresh audit under rule version 2 failed the HaluEval gate; recorded as a
+  limitation.**
+  - **Result.** 200 answers, every one hand-labeled. Cohen's kappa, with 95% bootstrap intervals:
+    - overall 0.667 (0.560–0.767), raw agreement 0.84;
+    - FEVER 0.666 (0.401–0.872), 74 answers;
+    - HaluEval **0.578** (0.415–0.734), 100 answers;
+    - TruthfulQA 0.641 (0.273–0.913), 26 answers.
+
+    The gate fails on HaluEval. TruthfulQA, the dataset whose rule changed, passes. The HaluEval
+    rule is identical under versions 1 and 2. It scored 0.7117 on the first sample and 0.578 on
+    this one, and the two intervals overlap.
+  - **Diagnosis.** Only `val_id` audit items were used, matched by answer ID against the `val_id`
+    label file: 63 from the first round and 78 from the second. No `test_id` audit row was read.
+    - **First round, 8 disagreements.** In 6, the answer gives the reference answer in a form the
+      rule does not match: plurals, a shorter form of a full name, or different punctuation or
+      wording. These were labeled hallucinated. In the other 2, the answer contains the reference
+      answer but adds a false detail. These were labeled not hallucinated; this is the limitation
+      already documented under "HaluEval" in LABELING.md.
+    - **Second round, 13 disagreements**, all labeled hallucinated by the rule and not
+      hallucinated by hand:
+      - 3 are rule misses of the same kind;
+      - 4 use a near-equivalent or approximate term in place of the reference answer;
+      - 6 give a different entity, value, or yes/no verdict than the reference answer.
+    - Under the written definition ("the answer to the question asked is not the reference
+      answer"), those last six are hallucinated. A rule revision would address at most 3 of the 13.
+  - **Decision.** The project owner chose to record this failure as a limitation rather than
+    revise further:
+    - no version 3 rule;
+    - no change to the auditor instructions;
+    - no third audit round;
+    - no hand label edited after scoring.
+
+    Both audit rounds, their keys, and their hand labels are kept as recorded. No kappa was
+    recomputed under alternative hand labels.
+  - **Still open.** How the HaluEval labels are used given the failed gate is not yet decided: as
+    is with this limitation reported, or otherwise. Training (Step 6) does not run until it is
+    decided and logged.
