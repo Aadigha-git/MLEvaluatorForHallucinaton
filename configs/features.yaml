@@ -1,0 +1,38 @@
+# Feature extraction settings recorded in docs/PREREGISTRATION.md ("Retrieval and feature models",
+# "Text normalization", "Features").
+
+feature_version: features-v1
+clean_version: "1"
+lexicon_version: hedges-v1
+
+embedding:
+  model_id: sentence-transformers/all-MiniLM-L6-v2
+  revision: 1110a243fdf4706b3f48f1d95db1a4f5529b4d41
+  max_seq_length: 256
+
+nli:
+  model_id: cross-encoder/nli-deberta-v3-small
+  revision: fa2804872c3b4bd748f38c0185cc85775361e735
+  max_length: 512
+  id2label: {0: contradiction, 1: entailment, 2: neutral}
+
+retrieval:
+  index_name: wikipedia-dpr-100w
+  index_filename: lucene-inverted.wikipedia-dpr-100w.20260508.deb4c7b.tar
+  index_md5: 1ef94a97f2ac418577d1e6a9ecf44806
+  index_documents: 21015324
+  index_dir: data/indexes/lucene-inverted.wikipedia-dpr-100w.20260508.deb4c7b
+  k1: 0.9
+  b: 0.4
+  k: 5
+  jdk_glob: .tools/jdk-21*/Contents/Home
+
+runtime:
+  device: cpu
+  torch_threads: 8
+  batch_size: 1
+
+paths:
+  features: data/features
+  generations: data/generations
+  generation_manifest: data/manifests/generations.json

@@ -13,3 +13,6 @@ data/audit/*
 data/pilot/
 data/generations/
 logs/
+.tools/
+data/indexes/
+data/features/

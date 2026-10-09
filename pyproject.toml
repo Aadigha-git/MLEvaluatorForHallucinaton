@@ -14,6 +14,12 @@ dependencies = [
 
 [dependency-groups]
 dev = ["pytest>=8"]
+features = [
+    "pyserini==2.4.0",
+    "sentence-transformers==6.1.0",
+    "torch==2.11.0",
+    "transformers==5.19.0",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -25,4 +31,7 @@ packages = ["src/hdetect"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-m 'not network'"
-markers = ["network: needs Hugging Face access (deselected by default)"]
+markers = [
+    "network: needs Hugging Face access (deselected by default)",
+    "models: needs the pinned feature models in the local Hugging Face cache",
+]
