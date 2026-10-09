@@ -17,6 +17,9 @@ config hash.
   "NOT ENOUGH INFO", and similar). A hedged guess ("I'm not sure, but I think it's X") is not an
   abstention and is judged on X. The abstention rate is reported separately, per dataset and
   generator, so a model cannot look good just by declining to answer.
+- The labeler's input is the cleaned answer, `hdetect.cleaning.clean_answer` (Markdown emphasis
+  and line markers removed, whitespace collapsed; see PREREGISTRATION.md, "Text normalization").
+  The raw answer is stored unchanged.
 - Text is normalized SQuAD-style before matching: lowercased, punctuation and articles removed.
 
 ## TruthfulQA

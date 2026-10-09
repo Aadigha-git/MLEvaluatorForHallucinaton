@@ -114,6 +114,43 @@ No prompt or setting changed, so `qa-v1` and `fever-v1` stand. Because greedy ou
 repeatable, the primary answer is a single stored draw and is never regenerated, as already stated
 above. The pilot outputs were deleted after these checks.
 
+### Storage, retries, and failures
+
+- **Storage.** Raw responses and call metadata go to one append-only file per split,
+  `data/generations/{split}.jsonl`, keyed by `answer_id` (`{question_id}/{generator}/{sample_index}`).
+  These files are git-ignored and are not committed. A committed manifest records each file's
+  SHA-256, row count, and the generation config hash. Completed files are made read-only and
+  copied to a separate durable backup outside the repository; the backup's hashes are verified
+  against the manifest, and a restore into a scratch directory is verified to reproduce them.
+- **Cache.** A successful row is never requested again or overwritten. If a stored row's request
+  parameters (model, prompt, temperature, top-p, max tokens, seed) differ from the plan, the run
+  aborts before making any call.
+- **Retries.** Transient errors (rate limits, timeouts, server errors, connection failures) are
+  retried 5 times with exponential backoff inside each attempt. A call that still fails gets an
+  error row and is attempted again on later passes, up to **5 attempts** in total. Errors caused by
+  the setup rather than the question (HTTP 400, 401, 403, 404) stop the run at once and are not
+  recorded against any question.
+- **Permanent failure:** no successful row after 5 attempts. A failed primary answer removes the
+  question from every result, counted as `api_failure`. Failed resamples are handled under
+  "Features", F9.
+- **Empty answers.** A successful call whose cleaned text (see "Text normalization") is empty,
+  including a content-filter stop, is not retried, since retrying would regenerate it. An empty
+  primary answer is excluded from every result and counted as `empty`. It is never labeled
+  hallucinated.
+- **Refusals** are model output, not failures, and are labeled by the existing rules: an
+  abstention is not hallucinated; anything else unclear goes to hand-labeling. No separate refusal
+  detector is used.
+- **Truncation** (finish reason `length`): the answer is kept and labeled as is, and the count is
+  reported. A secondary analysis repeats the primary tests without truncated primary answers.
+- **Reporting.** For every split and generator: planned, successful, `api_failure`, `empty`,
+  truncated, abstention, sent to hand-labeling, and excluded after hand-labeling. Total exclusions
+  (`api_failure` + `empty` + hand-excluded) count toward the 5% flag under "Labeling commitments".
+  Every metric states its n.
+- **Budget guard.** Before each call, the spend so far plus an upper bound on the call's cost (its
+  prompt length in characters as input tokens, plus the maximum new tokens as output tokens,
+  priced at the snapshot) is checked against a cap of **$1.00** for full generation. If the cap
+  would be exceeded, the run stops cleanly and resumes only after the cap is raised by amendment.
+
 ## Retrieval and feature models
 
 - **Corpus:** Wiki-DPR, 21,015,300 passages of 100 words from the 2018-12-20 English Wikipedia
@@ -128,6 +165,130 @@ above. The pilot outputs were deleted after these checks.
   `fa2804872c3b4bd748f38c0185cc85775361e735` (labels: 0 contradiction, 1 entailment, 2 neutral).
   Premise = one passage, hypothesis = the answer; passages are scored one at a time.
 - Neither model is used anywhere in labeling.
+
+### Retrieval recall
+
+Recall is descriptive. It is computed for every split after freezing, and no retrieval setting
+changes in response to it.
+
+- **FEVER, page recall@5:** the share of claims where at least one of the top 5 passage titles
+  equals a gold page title. Titles are compared after `hdetect.data.fever.page_title`, NFKC, and
+  case-folding.
+- **FEVER, sentence recall@5:** the share of claims where at least one gold sentence's normalized
+  tokens appear as a contiguous span in one of the top 5 passages.
+- **HaluEval, knowledge-sentence recall@5:** the share of questions where at least one sentence of
+  the gold knowledge passage appears, as a contiguous span of normalized tokens, in one of the top
+  5 passages. The knowledge passage has no page title, so there is no page-level measure. Matching
+  the reference answer string is not used, because it is not gold evidence.
+- **TruthfulQA: not measurable.** It has no gold passages, only source URLs, and is reported as
+  "n/a: no gold evidence". No proxy is used.
+
+FEVER was built from a 2017 Wikipedia dump and Wiki-DPR from a 2018 dump, so both measures
+undercount.
+
+## Text normalization
+
+`hdetect` applies `clean_answer` v1 to every answer before labeling and before feature extraction.
+The raw text is stored unchanged and never overwritten. In order:
+
+1. Unicode NFKC.
+2. Remove Markdown emphasis that wraps text: `**x**`, `__x__`, `*x*`, `_x_`, and backticks.
+3. At the start of a line, remove heading markers (`#`), quote markers (`>`), and bullet markers
+   (`-`, `*`, `+` followed by a space). Numbered-list markers are kept.
+4. Collapse every run of whitespace, including newlines, to one space, and trim both ends.
+
+Labeling rule version 1 takes the cleaned answer as input. No generated answer had been labeled
+when this was decided, and the hand audit had not started. Labeling already turns every character
+that steps 2–3 remove into a space, so cleaning changes a label in one case only: FEVER verdict
+parsing reads the text before normalization, so emphasis that splits a multi-word verdict (for
+example `*NOT* ENOUGH INFO`) leaves the raw answer unparseable (sent to hand-labeling), while the
+cleaned answer parses. `tests/test_cleaning.py` checks 1,449 Markdown variants of reference
+answers and verdicts; labels match except for that case.
+
+## Features (`features-v1`)
+
+Notation: *q* is the question (the claim for FEVER); *a* is the cleaned primary answer; *r*₁…*r*₅
+are the cleaned resamples; *P*₁…*P*ₖ are the evidence passages. *T*(*x*) is the set of
+`hdetect.labeling.text.content_tokens` of *x* (normalized tokens without stopwords, negations
+kept). *n* is the number of `hdetect.labeling.text.tokens` of *a*. NLI(premise, hypothesis) gives
+softmax probabilities of contradiction, entailment, and neutral.
+
+- **F0, input.** *a* is used as is for every dataset. FEVER answers keep their leading verdict
+  word; nothing is rewritten per dataset.
+- **F1, passages.** Retrieved: the top 5 BM25 passages, each as `"{title}: {text}"` (*k* = 5).
+  Gold: the one HaluEval knowledge passage (*k* = 1), or each FEVER gold sentence as
+  `"Title: sentence"` (*k* varies). No evidence: F2–F5 are absent, not imputed, and that
+  classifier uses F6–F9 only.
+- **F2, semantic similarity.** `sim_max` = max over *i* of the cosine similarity between the
+  normalized embeddings of *a* and *P*ᵢ (library default pooling, inputs truncated at 256 word
+  pieces).
+- **F3, NLI.** `nli_entail_max` = max over *i* of P(entailment | premise *P*ᵢ, hypothesis *a*);
+  `nli_contra_max` = max over *i* of P(contradiction | *P*ᵢ, *a*). Maximum input length 512
+  tokens; only the premise is truncated.
+- **F4, aggregation over passages.** Every evidence feature takes the maximum over passages.
+- **F5, lexical overlap.** With *A* = *T*(*a*) \ *T*(*q*), `lex_overlap_max` =
+  max over *i* of |*A* ∩ *T*(*P*ᵢ)| / |*A*|, and 0 when *A* is empty.
+- **F6, hedging.** `hedge_rate` = matches of the hedge lexicon / *n*; `booster_rate` = matches of
+  the booster lexicon / *n*; both 0 when *n* = 0. Matching runs on normalized tokens, longest
+  phrase first, without overlaps. Lexicon `hedges-v1`:
+  - hedges: might, may, could, possibly, possible, perhaps, probably, likely, unlikely,
+    apparently, seemingly, seem, seems, appear, appears, suggest, suggests, reportedly, allegedly,
+    supposedly, roughly, approximately, estimated, generally, typically, usually, often,
+    sometimes, somewhat, unclear, uncertain, unknown, debated, disputed, "i think", "i believe",
+    "not sure", "it is possible", "it depends", "some sources", "is thought", "is believed",
+    "is said";
+  - boosters: definitely, certainly, clearly, undoubtedly, always, never, absolutely, indeed,
+    "in fact", obviously, surely, proven, "without doubt", "of course".
+- **F7, length and specificity.** `log_length` = ln(1 + *n*). `specificity` = (tokens containing
+  a digit + capitalized tokens that do not start a sentence) / the number of whitespace-separated
+  tokens of *a*. A sentence starts at the beginning of the text or after a token ending in `.`,
+  `!`, or `?`; the token "I" is not counted. 0 when *a* is empty.
+- **F8, internal contradiction.** Split *a* into sentences at the regex
+  `(?<=[.!?])\s+(?=[A-Z0-9"'(])`. `self_contra` = max over ordered pairs of distinct sentences
+  (*s*ᵢ, *s*ⱼ) of P(contradiction | *s*ᵢ, *s*ⱼ); 0 with fewer than 2 sentences.
+- **F9, self-consistency (resampling tier only).** *R* = the resamples that succeeded and are not
+  empty after cleaning. `sc_embed` = mean over *r* ∈ *R* of cos(*a*, *r*); `sc_entail` = mean of
+  P(entailment | premise *r*, hypothesis *a*); `sc_contra` = mean of P(contradiction | *r*, *a*).
+  The number |*R*| is recorded. With |*R*| = 0, the question is left out of resampling-tier
+  results and counted.
+- **F10, determinism.** Features are computed once on CPU in float32 at batch size 1, with library
+  and model versions recorded, and cached. A missing value outside the cases above stops the run;
+  nothing is imputed.
+- **F11, exclusions.** No labeling-rule output (abstention detection, verdict parsing) is a
+  feature.
+
+The single-shot tier has 9 features (4 evidence-dependent, 5 evidence-free); the resampling tier
+adds 3. Each is a candidate for "best single feature" in its tier and evidence condition.
+
+## Cost and latency
+
+- **Price snapshot:** the Nebius Token Factory public catalog on 2026-10-08, recorded in
+  `configs/generation.yaml`: $0.10 per million input tokens and $0.30 per million output tokens
+  for both generators. Every dollar figure is API-reported tokens × snapshot price. The Nebius
+  bill is reported only as a cross-check. Judge prices get their own dated snapshot at step 8.
+- **Token accounting:** the usage the API reports per call. Failed calls are counted and their
+  cost is reported as unknown, not estimated. A successful row without usage is counted and the
+  cost total is marked incomplete.
+- **Incremental cost per verdict** (the spec's definition): the mean over evaluated questions,
+  excluding the primary answer. Resampling tier and self-consistency alone: the 5 resample calls.
+  LLM judge: the judge call. Single-shot classifier and the single features: $0 in API spend.
+  Local compute (retrieval, embedding, NLI, classifier) is reported in seconds on the stated
+  hardware and is not converted to dollars. The cost of the primary answer is reported for
+  context.
+- **Concurrency:** bulk generation uses 8 concurrent requests. It is stated next to every
+  generation latency.
+- **Latency boundaries.** From the moment the primary answer text is available to the decision
+  (verdict, probability, and band). This includes retrieval, embedding, NLI, feature computation,
+  the classifier, calibration, and the policy. The resampling tier adds resampling wall-clock
+  time. For the judge, it includes retrieval, because the judge gets the same evidence, and ends
+  when the judge's verdict is parsed. Primary generation and model loading are excluded; models
+  are warm.
+- **Local latency** is timed per question at batch size 1 on CPU, warm, for every evaluated
+  question, and reported as the median and 95th percentile with the hardware (Apple M5, 16 GB).
+- **Resampling cost and wall-clock are reported separately.** Cost = the sum over the 5 calls.
+  Parallel-equivalent latency = the maximum of the 5 per-call latencies; sequential latency =
+  their sum. Both are derived from per-call timings in the bulk run at concurrency 8, not from a
+  separate parallel benchmark.
 
 ## Fitting and selection: no test data
 
@@ -183,7 +344,8 @@ above. The pilot outputs were deleted after these checks.
   - the same tests under no evidence;
   - AUROC versions of all primary comparisons;
   - RQ1 on `test_id`;
-  - all primary tests with abstentions excluded.
+  - all primary tests with abstentions excluded;
+  - all primary tests with truncated primary answers excluded.
 - **Exploratory:**
   - the gold-evidence condition;
   - ablations, single-feature baselines beyond the best one, and the feature correlation matrix;
@@ -279,19 +441,10 @@ How the operating point drifts out of distribution is reported as exploratory.
 These must be resolved, and recorded here, before freezing.
 
 1. ~~**Pilot outcome**~~: resolved; see "Generation", "Pilot".
-2. **Feature formulas:**
-   - how scores combine over the 5 passages;
-   - the lexical-overlap metric;
-   - a versioned hedging lexicon;
-   - the length and specificity measures;
-   - how self-consistency compares the 5 resamples;
-   - the internal-contradiction check.
-3. **Retrieval recall** per dataset: FEVER by gold page title, HaluEval by answer-string match;
-   not measurable for TruthfulQA.
-4. **Generation failures:** what happens to truncated, empty, refused, or failed answers, and
-   whether those questions are excluded and counted.
-5. **Cost and latency measurement:** a dated price snapshot, the concurrency used for wall-clock
-   latency, and the spec's "incremental cost" definition.
+2. ~~**Feature formulas**~~: resolved; see "Text normalization" and "Features".
+3. ~~**Retrieval recall**~~: resolved; see "Retrieval and feature models", "Retrieval recall".
+4. ~~**Generation failures**~~: resolved; see "Generation", "Storage, retries, and failures".
+5. ~~**Cost and latency measurement**~~: resolved; see "Cost and latency".
 
 Not needed to freeze the research-question criteria, but needed before step 8: judge model IDs (a
 small open-weight judge and a frontier judge, each from a family other than Qwen and Gemma).
@@ -336,6 +489,9 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
   models, hyperparameter grids, calibration selection, AUROC on uncalibrated scores, and the
   decision-policy rule.
 - 2026-10-08: recorded the pilot outcome; no prompt or setting changed.
+- 2026-10-08: recorded text normalization, feature formulas, retrieval recall, generation storage
+  and failure rules, the budget guard, and cost and latency measurement; added the
+  truncation-excluded secondary analysis.
 
 ## Amendment log
 

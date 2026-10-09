@@ -11,3 +11,4 @@ data/processed/
 data/audit/*
 !data/audit/.gitkeep
 data/pilot/
+data/generations/
