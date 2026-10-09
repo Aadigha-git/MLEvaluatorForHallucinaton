@@ -41,7 +41,7 @@ to vary them.
 
 ## Evidence conditions
 
-- **Primary: retrieved evidence** (method under [Open items](#open-items)).
+- **Primary: retrieved evidence** (see [Retrieval and feature models](#retrieval-and-feature-models)).
 - **Secondary: no evidence.** Only evidence-free features are available.
 - **Exploratory: gold evidence**, on HaluEval and FEVER only; TruthfulQA has none.
 
@@ -49,11 +49,74 @@ A classifier is trained on `train` separately for the retrieved and no-evidence 
 gold-evidence analysis reuses the retrieved-evidence classifier, because the training split has no
 gold evidence.
 
+## Generation
+
+Only the primary answer (sample 0) is labeled; the five resamples are inputs to the
+self-consistency features and are never labeled. Raw outputs are stored once and never
+regenerated: FP8 batched serving is not bit-reproducible, even with greedy decoding.
+
+| Setting | Primary answer (sample 0) | Resamples (samples 1–5) |
+| --- | --- | --- |
+| Model A (`train`, `val_id`, `test_id`) | `Qwen/Qwen3-30B-A3B-Instruct-2507` | same |
+| Model B (`test_ood`, `test_heldout`) | `google/gemma-3-27b-it` | same |
+| Serving | Nebius Token Factory, `https://api.tokenfactory.nebius.com/v1/`, region eu-north1, FP8, as listed in the public catalog on 2026-10-08 | same |
+| Nominal weights (Hugging Face revision) | Qwen `0d7cf23991f47feeb3a57ecb4c9cee8ea4a17bfe`; Gemma `005ad3404e59d6023443cb575daa05336842228a`. The API does not expose the served revision. | same |
+| Temperature / top-p | 0 (greedy) / 1.0 | 0.7 / 1.0 |
+| top-k, penalties | not sent (API defaults) | not sent |
+| Max new tokens | 128 for `qa-v1`, 96 for `fever-v1` | same |
+| Messages | one user message, no system message | same |
+| `seed` | first 8 hex digits of SHA-256(`{question_id}/{sample_index}`) as an integer; sent, but determinism is not assumed | same |
+| Recorded per call | request parameters, model ID, prompt version, response ID, system fingerprint, finish reason, token usage, timestamps, latency, raw text | same |
+
+Prompts are versioned; any change bumps the version. HaluEval's knowledge passage is withheld,
+so all generation is closed-book.
+
+- **`qa-v1`** (TruthfulQA and HaluEval, shared so the in-distribution and out-of-distribution
+  comparison is not confounded by a prompt difference):
+
+  ```text
+  Answer the following question in one or two sentences.
+
+  Question: {question}
+  ```
+
+- **`fever-v1`** (FEVER): `hdetect.data.fever.PROMPT_TEMPLATE`.
+
+### Pilot
+
+Before freezing, a 20-question pilot checks formats and model availability only. Pilot questions
+come from `train` and `val_id`, plus FEVER claims that are in no split and share no
+near-duplicate cluster with any split. Both models answer every pilot question, including
+Model B, which otherwise never sees `train` or `val_id`. Pilot outputs are not labeled, are not
+used for any tuning, and are discarded after the format checks. If the pilot changes a prompt or a
+setting, its version is bumped here before freezing.
+
+## Retrieval and feature models
+
+- **Corpus:** Wiki-DPR, 21,015,300 passages of 100 words from the 2018-12-20 English Wikipedia
+  dump (`facebook/wiki_dpr`, revision `0ae2454140a2d6864475c83f26e6dc9cd4ab9ce4`, CC-BY-NC-4.0).
+- **Retriever:** BM25 using Pyserini's prebuilt Lucene index `wikipedia-dpr-100w`, k1 = 0.9,
+  b = 0.4, top 5 passages.
+- **Query:** the question text, or the claim for FEVER. It does not depend on the generated answer,
+  so both generators get the same passages.
+- **Embedding model:** `sentence-transformers/all-MiniLM-L6-v2`, revision
+  `1110a243fdf4706b3f48f1d95db1a4f5529b4d41` (maximum 256 word pieces).
+- **NLI model:** `cross-encoder/nli-deberta-v3-small`, revision
+  `fa2804872c3b4bd748f38c0185cc85775361e735` (labels: 0 contradiction, 1 entailment, 2 neutral).
+  Premise = one passage, hypothesis = the answer; passages are scored one at a time.
+- Neither model is used anywhere in labeling.
+
 ## Fitting and selection: no test data
 
 - Preprocessing (scaling, imputation) is fitted on `train` only.
-- Hyperparameters are chosen by 5-fold cross-validation on `train`, with folds grouped by
-  `cluster_id`, over fixed grids (see [Open items](#open-items)).
+- **Hyperparameters** are chosen by `StratifiedGroupKFold(n_splits=5, shuffle=True,
+  random_state=seed)` on `train`, grouped by `cluster_id`, scored by average precision. Ties go to
+  the simpler setting (smaller `C`; then smaller `max_depth`, then fewer `max_iter`). Grids, all
+  scikit-learn:
+  - logistic regression on standardized features: L2 penalty, `C` ∈ {0.01, 0.1, 1, 10},
+    `class_weight` ∈ {None, balanced}, `lbfgs` solver, `max_iter=1000`;
+  - `HistGradientBoostingClassifier`: `max_depth` ∈ {2, 3}, `learning_rate` ∈ {0.05, 0.1},
+    `max_iter` ∈ {100, 300}, `min_samples_leaf=20`, no early stopping, `random_state=seed`.
 - **The classifier** is whichever of logistic regression and gradient-boosted trees has the higher
   mean `val_id` F1 across the three training seeds, chosen per tier and evidence condition.
 - **Decision threshold.** For every evaluator (each classifier per tier, evidence condition, and
@@ -66,12 +129,18 @@ gold evidence.
 - **The best single feature** is the single feature with the highest `val_id` F1 among the features
   available in that tier and evidence condition. In the resampling tier this includes
   self-consistency.
-- Calibration is fitted on `val_id` only (method under [Open items](#open-items)).
+- **Calibration** is fitted on `val_id` only. Platt scaling and isotonic regression are compared by
+  expected calibration error (10 equal-width bins on P(hallucinated)), cross-fitted within
+  `val_id`: 5 folds grouped by `cluster_id`, each method fitted on 4 folds and measured on the
+  fifth, averaged over folds and the three training seeds. The lower mean ECE wins; a difference
+  under 0.005 goes to Platt. The chosen method is then refitted on all of `val_id`. Measuring ECE
+  on the data a calibrator was fitted to would favor isotonic regression by construction.
 - Test splits are scored only after freezing, once per reported result.
 
 ## Metrics and uncertainty
 
-- **Primary metric:** F1 for the positive class, *hallucinated*. **Secondary metric:** AUROC.
+- **Primary metric:** F1 for the positive class, *hallucinated*. **Secondary metric:** AUROC,
+  always computed on uncalibrated scores, since isotonic plateaus would create ties.
 - **Bootstrap.** Resampling is by `cluster_id`, keeping every row of a selected cluster together.
   10,000 replicates and 95% percentile intervals. Comparisons within a split are paired: every
   evaluator, seed, and baseline is scored on the same resampled clusters. A comparison across two
@@ -144,9 +213,25 @@ model (see Known limitations).
 ## Decision policy
 
 The accept/flag/escalate policy is separate from the binary classifier and is not part of either
-research question. Its two thresholds are solved on calibrated `val_id` probabilities to meet the
-operating-point goals under [Open items](#open-items). How the operating point drifts out of
-distribution is reported as exploratory.
+research question. With P the calibrated probability of hallucination on `val_id`:
+
+- **Accept** if P < t_low, where t_low is the largest value at which at most **5%** of accepted
+  answers are hallucinated.
+- **Escalate** if t_low ≤ P < t_high, where t_high is the largest value at which at most **20%** of
+  traffic is escalated. This spends the escalation budget on making flags as precise as possible.
+- **Flag** if P ≥ t_high.
+
+Candidate thresholds are the distinct calibrated values on `val_id`. If no t_low meets the 5% goal,
+the accept band is empty and the policy is reported as infeasible for that classifier.
+Isotonic calibration produces plateaus, so achieved rates move in steps. For every policy the
+report gives:
+
+- the number of distinct calibrated values;
+- the share of answers on each threshold's plateau, for `val_id` and each test split;
+- the achieved accept, escalate, and flag rates, next to the goals;
+- a reliability diagram for each calibration method.
+
+How the operating point drifts out of distribution is reported as exploratory.
 
 ## Labeling commitments
 
@@ -170,20 +255,24 @@ distribution is reported as exploratory.
 
 These must be resolved, and recorded here, before freezing.
 
-1. **Generator IDs:** exact Model A and Model B identifiers, revision, quantization, and serving
-   endpoint.
-2. **Generation settings:** temperature and maximum tokens for the primary answer; temperature and
-   top-p for the 5 resamples; generation seeds where the API supports them.
-3. **Prompts** for TruthfulQA and HaluEval (FEVER: `hdetect.data.fever.PROMPT_TEMPLATE`).
-4. **Feature-model IDs:** the sentence-embedding model and the NLI model.
-5. **Retrieval:** corpus and index, retriever (for example dense DPR or BM25), and top-k.
-6. **Calibration method:** Platt scaling or isotonic regression.
-7. **Hyperparameter grids** for logistic regression and gradient-boosted trees.
-8. **Operating-point goals** for the decision policy (the spec's examples: at most 5% of accepted
-   answers hallucinated; at most 20% of traffic escalated).
+1. **Pilot outcome:** both generators answer through the account in use, and any setting the pilot
+   changes is recorded with a bumped version.
+2. **Feature formulas:**
+   - how scores combine over the 5 passages;
+   - the lexical-overlap metric;
+   - a versioned hedging lexicon;
+   - the length and specificity measures;
+   - how self-consistency compares the 5 resamples;
+   - the internal-contradiction check.
+3. **Retrieval recall** per dataset: FEVER by gold page title, HaluEval by answer-string match;
+   not measurable for TruthfulQA.
+4. **Generation failures:** what happens to truncated, empty, refused, or failed answers, and
+   whether those questions are excluded and counted.
+5. **Cost and latency measurement:** a dated price snapshot, the concurrency used for wall-clock
+   latency, and the spec's "incremental cost" definition.
 
 Not needed to freeze the research-question criteria, but needed before step 8: judge model IDs (a
-small open-weight judge and a frontier judge, each from a different family than the generators).
+small open-weight judge and a frontier judge, each from a family other than Qwen and Gemma).
 
 ## Negative results
 
@@ -205,6 +294,11 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
 - With 242 questions in `test_ood`, the interval of Δ is likely wider than 0.05. The point-estimate
   criterion can therefore pass or fail on sampling noise; the interval is reported so readers can
   judge.
+- The spec suggests 7–9B generators; Nebius serves none, so the generators are a 30B
+  mixture-of-experts model (3B active parameters) and a 27B dense model. Served weights are FP8,
+  their exact revision is not exposed, and outputs are not bit-reproducible.
+- The retrieval corpus (Wiki-DPR) is licensed CC-BY-NC-4.0, so results and the demo are
+  non-commercial.
 - **Disclosure.** Before freezing, the labeler checks (`scripts/check_labelers.py`) consulted
   benchmark material from test partitions: TruthfulQA reference answers for all 817 questions,
   including `test_ood`, and the gold labels of all FEVER claims, all of which are in
@@ -216,6 +310,9 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
 - 2026-10-08: initial draft.
 - 2026-10-08: added `test_id`; fixed the evidence conditions, threshold rule, bootstrap unit, seed
   protocol, hypothesis tiers, RQ1 and RQ2 outcome rules, and labeling commitments after review.
+- 2026-10-08: recorded generators, generation settings, prompts, pilot design, retrieval, feature
+  models, hyperparameter grids, calibration selection, AUROC on uncalibrated scores, and the
+  decision-policy rule.
 
 ## Amendment log
 
