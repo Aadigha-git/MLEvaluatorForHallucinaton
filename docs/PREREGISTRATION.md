@@ -91,6 +91,29 @@ Model B, which otherwise never sees `train` or `val_id`. Pilot outputs are not l
 used for any tuning, and are discarded after the format checks. If the pilot changes a prompt or a
 setting, its version is bumped here before freezing.
 
+**Outcome (2026-10-08, `scripts/run_pilot.py`, generation config hash `dd62601d8ab3`).** The pilot
+used 7 `train` TruthfulQA questions, 7 `val_id` HaluEval questions, and 6 unassigned FEVER claims.
+Each model made 140 calls: a primary answer, a second greedy call, and 5 resamples per question.
+
+- All 280 calls succeeded. Each response reported the requested model ID and a single system
+  fingerprint per model.
+- Every call ended with finish reason `stop`: none was truncated, empty, or contained a reasoning
+  block. The longest answers were 96 of 128 tokens (`qa-v1`) and 59 of 96 (`fever-v1`).
+- All 84 FEVER answers open with a parseable verdict.
+- Some answers use Markdown emphasis (19 of 280), and Gemma sometimes ends with blank lines.
+- **Greedy decoding is not repeatable.** A second greedy call returned identical text for 8 of 14
+  `qa-v1` questions and 4 of 6 FEVER claims with Qwen, and for 2 of 14 and 3 of 6 with Gemma.
+  Token F1 between differing pairs ranged from 0.47 to 0.98. In every differing FEVER pair, both
+  calls gave the same verdict.
+- Resamples at temperature 0.7 differed within 39 of 40 question–model pairs (mean pairwise token
+  F1 0.76).
+- Median latency per call at concurrency 8 was 3.0–3.4 s for Qwen and 0.7–0.9 s for Gemma. The
+  pilot cost $0.0051.
+
+No prompt or setting changed, so `qa-v1` and `fever-v1` stand. Because greedy output is not
+repeatable, the primary answer is a single stored draw and is never regenerated, as already stated
+above. The pilot outputs were deleted after these checks.
+
 ## Retrieval and feature models
 
 - **Corpus:** Wiki-DPR, 21,015,300 passages of 100 words from the 2018-12-20 English Wikipedia
@@ -255,8 +278,7 @@ How the operating point drifts out of distribution is reported as exploratory.
 
 These must be resolved, and recorded here, before freezing.
 
-1. **Pilot outcome:** both generators answer through the account in use, and any setting the pilot
-   changes is recorded with a bumped version.
+1. ~~**Pilot outcome**~~: resolved; see "Generation", "Pilot".
 2. **Feature formulas:**
    - how scores combine over the 5 passages;
    - the lexical-overlap metric;
@@ -313,6 +335,7 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
 - 2026-10-08: recorded generators, generation settings, prompts, pilot design, retrieval, feature
   models, hyperparameter grids, calibration selection, AUROC on uncalibrated scores, and the
   decision-policy rule.
+- 2026-10-08: recorded the pilot outcome; no prompt or setting changed.
 
 ## Amendment log
 
