@@ -1,0 +1,65 @@
+# Fixed before any data is generated. Changing a value here changes the config
+# hash written next to every artifact, so results stay traceable to settings.
+
+seed: 20261008
+
+# Self-consistency resamples per question (resampling tier). Pre-registered; do not change.
+resample_n: 5
+
+paths:
+  raw: data/raw
+  processed: data/processed
+  splits: data/splits
+  audit: data/audit
+
+# Pinned Hugging Face dataset revisions (commit SHAs).
+datasets:
+  truthfulqa:
+    repo: truthfulqa/truthful_qa
+    revision: 741b8276f2d1982aa3d5b832d3ee81ed3b896490
+    file: generation/validation-00000-of-00001.parquet
+  halueval:
+    repo: pminervini/HaluEval
+    revision: 12a856119f03975a94509091e8cada3e6be6ead7
+    file: qa/data-00000-of-00001.parquet
+  fever:
+    # The original fever/fever repo is a loading script only; this mirror ships
+    # the FEVER claims with gold evidence sentence text inlined.
+    repo: copenlu/fever_gold_evidence
+    revision: a6b8d891d393e97a4efac791afffb2d7de5e57c6
+    file: valid.jsonl
+
+# Each split is one dataset answered by one generator. A dataset is either divided
+# among its splits by `fraction`, or sampled to `n` per split, drawn in the order
+# listed here from questions not already taken.
+splits:
+  train:        {dataset: truthfulqa, generator: model_a, fraction: 0.7, stratify: category}
+  test_ood:     {dataset: truthfulqa, generator: model_b, fraction: 0.3, stratify: category}
+  val_id:       {dataset: halueval,   generator: model_a, n: 1000}
+  # Untouched in-distribution reference for research question 2; never used for tuning.
+  test_id:      {dataset: halueval,   generator: model_a, n: 500}
+  test_heldout: {dataset: fever,      generator: model_b, n: 1000, stratify: gold_label}
+
+dedup:
+  # Cosine similarity over character n-gram TF-IDF of normalized question text.
+  ngram_range: [3, 5]
+  threshold: 0.85
+  # A near-duplicate cluster spanning datasets keeps only the members from the
+  # first dataset listed here; evaluation datasets win over the training source.
+  keep_priority: [fever, halueval, truthfulqa]
+
+labeling:
+  rule_version: "1"
+  truthfulqa:
+    # Similarity = share of a reference's content tokens found in the answer,
+    # zeroed when negation polarity differs.
+    min_match: 0.5
+    margin: 0.2
+  halueval:
+    f1_threshold: 0.6
+    # Token F1 in [unresolved_floor, f1_threshold) goes to hand-labeling.
+    unresolved_floor: 0.3
+
+audit:
+  sample_size: 200
+  bootstrap_samples: 2000
