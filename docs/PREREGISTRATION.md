@@ -496,4 +496,22 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
 
 ## Amendment log
 
-(empty)
+- **2026-10-09, corpus description and index version (no protocol change).** "Retrieval and
+  feature models" describes the corpus as 21,015,300 passages, a figure from the Hugging Face
+  `facebook/wiki_dpr` dataset card. The pre-registered retriever, Pyserini's prebuilt
+  `wikipedia-dpr-100w` index, holds the full DPR 100-word Wikipedia split: **21,015,324**
+  passages, confirmed by Pyserini's document count after download. The index used is
+  `lucene-inverted.wikipedia-dpr-100w.20260508.deb4c7b.tar` (Lucene 10.4.0, 11,078,635,520
+  bytes, MD5 `1ef94a97f2ac418577d1e6a9ecf44806`), the catalog entry pinned by Pyserini 2.4.0,
+  searched with Anserini 2.3.0 on Temurin JDK 21.0.12.1. Retriever, index name, BM25 parameters,
+  k, and query are unchanged.
+- **2026-10-09, implementation notes for `features-v1` (no definition change).** Details the text
+  above leaves open, fixed in code before any feature was computed:
+  - F7 `specificity`: a token can count in both terms (digit and capitalized); leading
+    punctuation such as quotes or brackets is ignored when testing capitalization; only the
+    exact token "I" is excluded.
+  - HaluEval knowledge-sentence recall splits the knowledge passage with the F8 sentence regex.
+  - Retrieved passage titles are taken from the first line of each Wiki-DPR document; passage
+    text is used as stored, including the corpus's doubled quotation marks.
+  - Self-consistency, NLI, and embeddings run with `torch.set_num_threads(8)` and deterministic
+    algorithms; the settings are in `configs/features.yaml`.
