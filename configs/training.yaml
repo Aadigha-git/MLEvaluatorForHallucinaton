@@ -1,0 +1,40 @@
+# Step 6: classifier training, selection, ablations, and redundancy analysis on train and val_id.
+# Grids, CV, seeds, and selection rules are frozen in docs/PREREGISTRATION.md ("Fitting and
+# selection", "Metrics and uncertainty"); details it leaves open are recorded in its amendment log.
+
+seeds: [20261008, 20261009, 20261010]
+
+cv:
+  n_splits: 5
+  scoring: average_precision
+
+logistic_regression:
+  C: [0.01, 0.1, 1, 10]
+  class_weight: [null, balanced]
+  solver: lbfgs
+  max_iter: 1000
+
+hist_gradient_boosting:
+  max_depth: [2, 3]
+  learning_rate: [0.05, 0.1]
+  max_iter: [100, 300]
+  min_samples_leaf: 20
+
+bootstrap:
+  replicates: 10000
+  seed: 20261008
+  chunk: 500
+
+permutation_importance:
+  n_repeats: 30
+  scoring: average_precision
+
+runtime:
+  n_jobs: 8
+  latency_rows: 200
+
+paths:
+  features: data/features
+  labels: data/labels
+  hand_labels: data/audit/unresolved_dev_blind.csv
+  reports: reports/step6
