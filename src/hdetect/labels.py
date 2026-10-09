@@ -1,6 +1,7 @@
 """Labels for generated primary answers: the frozen automatic rules, then hand labels for the rest.
 
-Automatic labels are stored per split in `data/labels/auto/{split}.jsonl` (git-ignored). The
+Automatic labels are stored per rule version and split in `data/labels/v{version}/auto/{split}.jsonl`
+(git-ignored). The
 labeler's input is the cleaned primary answer; raw text stays in the generation files. Test splits
 are labeled and read only with `allow_test_splits=True`, which only ml/evaluation/ passes.
 
@@ -29,8 +30,18 @@ from hdetect.labeling import label
 from hdetect.labeling.audit import UNDECIDABLE
 from hdetect.schema import Example, Label
 
-LABELS_DIR = Path("data/labels")
+LABELS_ROOT = Path("data/labels")
 EXCLUSION_FLAG_RATE = 0.05
+
+
+def version_dir(rule_version: str, root: str | Path = LABELS_ROOT) -> Path:
+    """Labels from different rule versions never share a directory: data/labels/v{version}/."""
+    return Path(root) / f"v{rule_version}"
+
+
+def audit_file(stem: str, rule_version: str, suffix: str) -> str:
+    """File names under data/audit/ for one rule version; version 1 keeps its original names."""
+    return f"{stem}{'' if rule_version == '1' else f'_v{rule_version}'}{suffix}"
 
 
 class IncompleteLabels(RuntimeError):
@@ -41,7 +52,7 @@ class LabelFileMismatch(RuntimeError):
     pass
 
 
-def auto_path(split: str, labels_dir: str | Path = LABELS_DIR) -> Path:
+def auto_path(split: str, labels_dir: str | Path) -> Path:
     return Path(labels_dir) / "auto" / f"{split}.jsonl"
 
 
@@ -83,7 +94,7 @@ def label_split(
     return rows
 
 
-def write_auto_labels(rows: Sequence[dict[str, Any]], split: str, labels_dir: str | Path = LABELS_DIR) -> Path:
+def write_auto_labels(rows: Sequence[dict[str, Any]], split: str, labels_dir: str | Path) -> Path:
     """Write once; rewriting is allowed only if the content is identical (labels are immutable)."""
     path = auto_path(split, labels_dir)
     if path.exists():
@@ -95,7 +106,7 @@ def write_auto_labels(rows: Sequence[dict[str, Any]], split: str, labels_dir: st
     return path
 
 
-def read_auto_labels(split: str, labels_dir: str | Path = LABELS_DIR, *, allow_test_splits: bool = False) -> list[dict]:
+def read_auto_labels(split: str, labels_dir: str | Path, *, allow_test_splits: bool = False) -> list[dict]:
     guard(split, allow_test_splits)
     return list(read_jsonl(auto_path(split, labels_dir)))
 

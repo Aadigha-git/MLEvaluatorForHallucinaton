@@ -558,3 +558,61 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
     tier's features.
   - Datasets. `train` is TruthfulQA only and `val_id` is HaluEval only, so per-dataset results equal
     per-split results. Evidence-condition effects are compared within `val_id`.
+- **2026-10-09, labeling audit failed the TruthfulQA gate; rule version 2 (procedure under
+  "Labeling commitments").** Frozen and committed before any version 2 label, sample, or hand
+  label existed.
+  - **Version 1 audit result.** 200 answers, every one hand-labeled. Cohen's kappa: overall 0.7447,
+    FEVER 0.7690, HaluEval 0.7117, TruthfulQA 0.5768. The gate requires at least 0.6 overall and
+    per dataset, so it failed on TruthfulQA. The TruthfulQA estimate rests on 34 answers, 25 from
+    `train` and 9 from `test_ood`. The version 1 sample, its key, the hand labels, and the
+    version 1 automatic labels are kept unchanged for the record. No hand label was edited after
+    scoring.
+  - **Evidence used for the revision.** Only the 25 TruthfulQA `train` audit items. Their
+    automatic labels were read from the `train` label file, not from the audit key, so no
+    test-split label was loaded. The 63 HaluEval `val_id` items were not needed, because only the
+    TruthfulQA rule changes. Not used: the 9 `test_ood`, 32 `test_id`, and 71 FEVER audit items.
+  - **What went wrong.** Version 1 agreed with the hand label on 19 of the 25 `train` items
+    (kappa 0.41). The six disagreements had four causes:
+    - negation checked over the whole answer (2);
+    - references left with a single answer-specific word after the question's words are removed (2);
+    - an answer that mentions an incorrect claim while correcting it (1);
+    - a hand label that departs from TruthfulQA's listed incorrect answer (1). This one is outside
+      any rule's reach and was left as recorded.
+  - **Change: TruthfulQA matching only** (LABELING.md, "Version 2 matching"). Scoring and the
+    negation check now work per answer sentence. A reference with fewer than 2 answer-specific
+    words cannot decide a label, but a full match on one blocks the opposite label. Unchanged:
+    `min_match` and `margin`; the HaluEval and FEVER rules; the label definitions; the shared text
+    utilities that also define `features-v1` tokens; features; answers; splits.
+  - **Rejected draft.** Ignoring short references outright was rejected. An answer asserting both a
+    correct reference and a one-word incorrect one (for example, "a French folk song composed by
+    Mozart") would then be labeled not hallucinated, against the definition.
+  - **In-sample agreement on the 25 `train` items.** Version 1 resolved 25 and agreed on 19 (kappa
+    0.41). Version 2 resolves 15, agrees on 13, and reaches kappa **0.595**, below the gate even on
+    its own development items. It was frozen on the project owner's decision, and the fresh audit
+    decides.
+  - **Effect on development labels.**
+    - `train` goes from 109 hallucinated, 237 not hallucinated, and 229 unresolved to 79, 166, and
+      330.
+    - 156 labels change: 127 resolved answers become unresolved, 26 unresolved answers become
+      resolved, and 3 change from not hallucinated to hallucinated.
+    - `val_id` (HaluEval) is unchanged.
+    - Changes on the test splits are not counted or reported before Step 9.
+  - **Fresh audit.**
+    - 200 automatically resolved answers drawn from the version 2 labels of all five splits, with
+      the same stratification, seed 20261011, and every answer from the version 1 sample excluded.
+      It is drawn once, by `ml/evaluation/export_audit_sample.py` (`AUDIT_ROUNDS`).
+    - It is scored by `ml/evaluation/score_audit.py` against the same gate: kappa of at least 0.6
+      overall and per dataset, on the point estimates.
+    - The auditor instructions now restate the existing TruthfulQA definition: listed incorrect
+      answers count as hallucinated. This restates the definition; it does not change it.
+    - **If the fresh audit fails for any dataset, work stops for a decision.** No further revision
+      is pre-specified.
+  - **Disclosures.**
+    - The auditor has seen every answer in the version 1 sample, including the test-split items.
+      None informed the revision, and none can enter the fresh sample.
+    - Changing `configs/default.yaml` changes the config hash recorded on labeled rows. The split
+      assignments and manifest are unchanged; the split config hash `30cf64f436c0` above refers to
+      the configuration at split creation.
+    - Labels are stored per rule version under `data/labels/v{version}/`. Training reads version 2
+      labels only and checks the version. The version 1 dev unresolved queue, which had no hand
+      labels, is superseded by the version 2 queue.

@@ -35,6 +35,6 @@ runtime:
 
 paths:
   features: data/features
-  labels: data/labels
-  hand_labels: data/audit/unresolved_dev_blind.csv
+  labels: data/labels/v2
+  hand_labels: data/audit/unresolved_dev_v2_blind.csv
   reports: reports/step6

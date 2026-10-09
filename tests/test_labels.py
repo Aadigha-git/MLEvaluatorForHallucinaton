@@ -35,9 +35,29 @@ def test_dev_labeling_entry_point_rejects_test_splits():
     assert out.returncode != 0 and "invalid choice" in out.stderr
 
 
+def test_rule_versions_never_share_files():
+    from hdetect.labels import audit_file, version_dir
+
+    assert version_dir("1").as_posix() == "data/labels/v1" and version_dir("2").as_posix() == "data/labels/v2"
+    assert audit_file("audit_sample", "1", "_blind.csv") == "audit_sample_blind.csv"
+    assert audit_file("audit_sample", "2", "_key.jsonl") == "audit_sample_v2_key.jsonl"
+    assert audit_file("unresolved_dev", "2", "_blind.csv") == "unresolved_dev_v2_blind.csv"
+
+
+def test_audit_rounds_are_fixed_before_drawing():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("export_audit_sample", ROOT / "ml" / "evaluation" / "export_audit_sample.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod.AUDIT_ROUNDS == {"1": {"seed": 20261008, "exclude_rounds": ()},
+                                "2": {"seed": 20261011, "exclude_rounds": ("1",)}}
+
+
 def test_blind_exports_never_show_automatic_labels():
     assert "label" not in BLIND_COLUMNS
-    for name in ("unresolved_dev_blind.csv", "audit_sample_blind.csv"):
+    for name in ("unresolved_dev_blind.csv", "audit_sample_blind.csv", "unresolved_dev_v2_blind.csv",
+                 "audit_sample_v2_blind.csv"):
         path = ROOT / "data" / "audit" / name
         if not path.exists():
             continue

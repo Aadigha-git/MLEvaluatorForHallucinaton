@@ -107,7 +107,7 @@ def main() -> None:
         raise SystemExit(f"data checks failed: {checks}")
 
     hand = read_hand(paths["hand_labels"])
-    labels = {s: load_labels(s, paths["labels"], hand) for s in ("train", "val_id")}
+    labels = {s: load_labels(s, paths["labels"], hand, cfg.labeling.rule_version) for s in ("train", "val_id")}
     versions = {"feature_version": fcfg.raw["feature_version"], "clean_version": str(fcfg.raw["clean_version"]),
                 "lexicon_version": fcfg.raw["lexicon_version"],
                 "embedding_model": f"{fcfg.embedding.model_id}@{fcfg.embedding.revision}",

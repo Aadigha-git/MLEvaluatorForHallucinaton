@@ -1,8 +1,9 @@
 """Label the development splits' primary answers and export their unresolved queue for hand labeling.
 
-Writes data/labels/auto/{train,val_id}.jsonl and data/audit/unresolved_dev_blind.csv (no automatic
-labels shown). Test splits are refused here; they go through ml/evaluation/label_test_answers.py.
-An existing queue CSV is never overwritten, so hand labels already entered are safe.
+Uses the rule version in the config. Writes data/labels/v{version}/auto/{train,val_id}.jsonl and
+the blind queue data/audit/unresolved_dev[_v{version}]_blind.csv (no automatic labels shown). Test
+splits are refused here; they go through ml/evaluation/label_test_answers.py. An existing queue
+CSV is never overwritten, so hand labels already entered are safe.
 """
 
 from __future__ import annotations
@@ -17,10 +18,12 @@ from hdetect.data.io import read_jsonl
 from hdetect.data.splits import SplitManifest
 from hdetect.features import DEV_SPLITS
 from hdetect.labeling.audit import unresolved_queue, write_blind_csv
-from hdetect.labels import LABELS_DIR, label_split, write_auto_labels
+from hdetect.labels import audit_file, label_split, version_dir, write_auto_labels
 from hdetect.schema import Example
 
-QUEUE_NAME = "unresolved_dev_blind.csv"
+
+def labels_dir(args, cfg) -> Path:
+    return Path(args.labels_dir) if args.labels_dir else version_dir(cfg.labeling.rule_version)
 
 
 def label_splits(splits, args, *, allow_test_splits: bool = False) -> dict[str, list[dict]]:
@@ -33,7 +36,7 @@ def label_splits(splits, args, *, allow_test_splits: bool = False) -> dict[str, 
             split, examples, manifest, args.generations, args.generation_manifest, cfg.labeling, cfg.hash,
             allow_test_splits=allow_test_splits,
         )
-        write_auto_labels(rows, split, args.labels_dir)
+        write_auto_labels(rows, split, labels_dir(args, cfg))
         out[split] = rows
     return out
 
@@ -44,7 +47,7 @@ def parser(description: str, choices) -> argparse.ArgumentParser:
     p.add_argument("--config", default="configs/default.yaml")
     p.add_argument("--generations", default="data/generations")
     p.add_argument("--generation-manifest", default="data/manifests/generations.json")
-    p.add_argument("--labels-dir", default=str(LABELS_DIR))
+    p.add_argument("--labels-dir", default=None, help="default: data/labels/v{rule_version}")
     return p
 
 
@@ -53,13 +56,13 @@ def main() -> None:
     labeled = label_splits(args.splits, args)
     cfg = load_config(args.config)
     summary = {
-        split: {"answers": len(rows), **Counter(r["label"] for r in rows),
+        split: {"rule_version": cfg.labeling.rule_version, "answers": len(rows), **Counter(r["label"] for r in rows),
                 "abstained": sum(r["abstained"] for r in rows)}
         for split, rows in labeled.items()
     }
     print(json.dumps(summary, indent=2))
 
-    queue_path = Path(cfg.paths["audit"]) / QUEUE_NAME
+    queue_path = Path(cfg.paths["audit"]) / audit_file("unresolved_dev", cfg.labeling.rule_version, "_blind.csv")
     queue = unresolved_queue([r for rows in labeled.values() for r in rows])
     if queue_path.exists():
         print(f"{queue_path} exists; not overwritten ({len(queue)} unresolved answers)")

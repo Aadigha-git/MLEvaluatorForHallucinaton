@@ -57,8 +57,13 @@ def read_hand(path: str | Path) -> dict[str, str]:
     return read_hand_labels(path, allow_undecidable=True)
 
 
-def load_labels(split: str, labels_dir: str | Path, hand: Mapping[str, str]) -> tuple[FinalLabels, list[dict]]:
+def load_labels(
+    split: str, labels_dir: str | Path, hand: Mapping[str, str], rule_version: str
+) -> tuple[FinalLabels, list[dict]]:
     auto = read_auto(labels_dir, split)
+    versions = {r["rule_version"] for r in auto}
+    if versions != {rule_version}:
+        raise AlignmentError(f"{split}: labels have rule versions {sorted(versions)}, expected {rule_version!r}")
     return final_labels(split, auto, hand), auto
 
 

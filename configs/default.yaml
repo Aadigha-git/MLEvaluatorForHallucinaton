@@ -49,10 +49,11 @@ dedup:
   keep_priority: [fever, halueval, truthfulqa]
 
 labeling:
-  rule_version: "1"
+  rule_version: "2"
   truthfulqa:
-    # Similarity = share of a reference's content tokens found in the answer,
-    # zeroed when negation polarity differs.
+    # Similarity = share of a reference's answer-specific content tokens found in the answer,
+    # zeroed when negation polarity differs. Version 2 matches per answer sentence and ignores
+    # references with fewer than 2 answer-specific tokens (docs/LABELING.md).
     min_match: 0.5
     margin: 0.2
   halueval:

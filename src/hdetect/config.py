@@ -13,6 +13,8 @@ from hdetect.schema import DATASETS
 PREREGISTERED_RESAMPLE_N = 5
 
 # Split roles from docs/SPEC.md ("Data sources, split for generalization testing").
+RULE_VERSIONS = frozenset({"1", "2"})
+
 SPLIT_ROLES: dict[str, tuple[str, str]] = {
     "train": ("truthfulqa", "model_a"),
     "val_id": ("halueval", "model_a"),
@@ -169,6 +171,8 @@ def _validate(cfg: Config) -> None:
     if sorted(d.keep_priority) != sorted(DATASETS):
         raise ConfigError("dedup.keep_priority must list every dataset exactly once")
 
+    if cfg.labeling.rule_version not in RULE_VERSIONS:
+        raise ConfigError(f"labeling.rule_version must be one of {sorted(RULE_VERSIONS)}")
     t = cfg.labeling.truthfulqa
     if not (0 < t.min_match <= 1 and 0 <= t.margin <= 1):
         raise ConfigError("labeling.truthfulqa thresholds must be in [0, 1]")

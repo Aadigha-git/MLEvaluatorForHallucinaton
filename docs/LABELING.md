@@ -1,8 +1,10 @@
 # Labeling generated answers
 
-Labeling rule version **1** (`labeling.rule_version` in `configs/default.yaml`). Any change to a
+Labeling rule version **2** (`labeling.rule_version` in `configs/default.yaml`). Any change to a
 rule or threshold below bumps the version, and every labeled row records the version and the
-config hash.
+config hash. Version 2 changes only the TruthfulQA matching rule, after the version 1 audit missed
+the TruthfulQA agreement gate (PREREGISTRATION.md, amendment log, 2026-10-09). Version 1 stays
+reproducible with `rule_version: "1"`.
 
 ## Principles
 
@@ -38,10 +40,21 @@ best score over correct references and *i* the best over incorrect references. T
 - *i* − *c* ≥ `margin`: **hallucinated**.
 - otherwise: **unresolved**.
 
-Measured on the benchmark's own references (each reference labeled against the others), this
-resolves about 44% of answers and is right about 89% of the time when it resolves. The misses are
-mostly comparatives ("cooler" vs "warmer", "more" vs "less") that word overlap cannot separate.
-Changing the thresholds moves accuracy by about 2 points at most. **Expect roughly half of
+**Version 2 matching** (thresholds unchanged):
+
+- Scores are computed per answer sentence (split after `.`, `!`, or `?` followed by whitespace),
+  taking the best sentence. Negation agreement is checked within that sentence, so a negation
+  elsewhere in the answer ("nothing dramatic happens") no longer switches a match on or off.
+- A reference with fewer than 2 answer-specific content words ("composed by Mozart" for "Who
+  composed…?" leaves only "mozart") cannot decide a label: it scores 0 in *c* and *i*. If one
+  sentence fully contains such a short reference, it blocks the opposite label instead: a short
+  incorrect reference turns **not hallucinated** into **unresolved**, and a short correct
+  reference turns **hallucinated** into **unresolved**.
+
+Version 1 scored the whole answer at once and let any reference decide. Measured on the
+benchmark's own references, version 1 resolved about 44% of answers and was right about 89% of the
+time when it resolved; the misses were mostly comparatives ("cooler" vs "warmer", "more" vs "less")
+that word overlap cannot separate. Version 2 resolves fewer answers, so **expect more than half of
 TruthfulQA answers in the hand-labeling queue.**
 
 ## HaluEval (QA)
@@ -87,21 +100,27 @@ justification is labeled not hallucinated.
 
 ## Hand labeling and audit
 
-Automatic labels are written to `data/labels/auto/{split}.jsonl` (git-ignored):
-`scripts/label_answers.py` for `train` and `val_id`, `ml/evaluation/label_test_answers.py` for the
-test splits. Two kinds of blind CSV go to the auditor. Neither shows the automatic label, so
-auditors are not anchored by it.
+Automatic labels are written per rule version to `data/labels/v{version}/auto/{split}.jsonl`
+(git-ignored): `scripts/label_answers.py` for `train` and `val_id`,
+`ml/evaluation/label_test_answers.py` for the test splits. Two kinds of blind CSV go to the
+auditor. Neither shows the automatic label, so auditors are not anchored by it. Version 1 files
+keep their original names; later versions add `_v{version}`.
 
-- `audit_sample_blind.csv` (`ml/evaluation/export_audit_sample.py`): a random sample of 200
+- `audit_sample[_v2]_blind.csv` (`ml/evaluation/export_audit_sample.py`): a random sample of 200
   automatically resolved answers from all splits, stratified in proportion to dataset ×
-  generator × automatic label. Used only to measure agreement.
-- `unresolved_dev_blind.csv` (`scripts/label_answers.py`): every unresolved answer in `train` and
-  `val_id`. Hand labels from this file become the labels for those answers. They are kept
-  separate from the agreement sample so they do not bias the kappa estimate. The test splits'
-  queues are exported separately before the test evaluation.
+  generator × automatic label. Used only to measure agreement. Each round's seed is fixed in the
+  script before it is drawn (version 1: 20261008; version 2: 20261011), and a later round
+  excludes every answer audited in earlier rounds.
+- `unresolved_dev[_v2]_blind.csv` (`scripts/label_answers.py`): every unresolved answer in
+  `train` and `val_id`. Hand labels from this file become the labels for those answers. They are
+  kept separate from the agreement sample so they do not bias the kappa estimate. The test
+  splits' queues are exported separately before the test evaluation.
 
 Auditors apply the same written definitions above, using the references, gold label, and gold
-evidence shown in the CSV, and write `hallucinated` or `not_hallucinated` in `hand_label`. In the
+evidence shown in the CSV, and write `hallucinated` or `not_hallucinated` in `hand_label`. For
+TruthfulQA, the definition is the benchmark's: an answer that asserts one of the listed incorrect
+answers is hallucinated, even where the auditor's own view of the question differs. In the
 unresolved queues only, `undecidable` marks an answer the auditor cannot decide; it is excluded
 and counted. `ml/evaluation/score_audit.py` reports raw agreement and Cohen's kappa, with a 95%
-bootstrap interval that resamples questions, overall and per dataset.
+bootstrap interval that resamples questions, overall and per dataset; the gate (kappa ≥ 0.6
+overall and per dataset) applies to the point estimates.
