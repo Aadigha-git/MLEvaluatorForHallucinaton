@@ -515,3 +515,46 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
     text is used as stored, including the corpus's doubled quotation marks.
   - Self-consistency, NLI, and embeddings run with `torch.set_num_threads(8)` and deterministic
     algorithms; the settings are in `configs/features.yaml`.
+- **2026-10-09, labeling workflow and Step 6 analysis details (no protocol change).** Recorded
+  before any classifier was fitted on real labels, and before any label of an unresolved answer
+  was known.
+  - Labels. The automatic rules (version 1) label every primary answer once and store the result
+    under `data/labels/auto/`. The test splits are labeled only through `ml/evaluation/`, and their
+    labels are not printed or inspected. The 200-answer audit sample is drawn from all five splits
+    by `ml/evaluation/export_audit_sample.py`. Each split's unresolved answers go to a blind queue,
+    starting with `train` and `val_id`. In that queue, `undecidable` marks an answer the hand
+    labeler cannot decide. Such answers are excluded and counted. Training refuses to start while
+    any unresolved `train` or `val_id` answer lacks a hand decision.
+  - Ties beyond those already fixed. Mean cross-validated AP is compared after rounding to 12
+    decimals. For logistic regression, a tie in `C` goes to `class_weight=None`. For boosted trees,
+    remaining ties go to the smaller `learning_rate`. A tie in mean `val_id` F1 between the two
+    families goes to logistic regression.
+  - Single features. If both directions reach the same F1, "higher means hallucinated" wins. AUROC
+    and AUPRC use the score in the chosen direction.
+  - Validation reporting. F1, AUROC, and AUPRC are reported on `val_id` for each seed, with the mean,
+    minimum, maximum, and standard deviation over seeds. F1 uses the threshold chosen on `val_id`
+    under the frozen rule, so it is optimistic in the same way for every evaluator. Uncertainty
+    comes from the frozen cluster bootstrap over `val_id` (10,000 replicates, paired, seed-averaged
+    within each replicate) with thresholds held fixed.
+  - No imputer is fitted, because `features-v1` has no missing values and F10 forbids imputation.
+    Standardization is fitted inside each cross-validation training fold, then refitted on all of
+    `train`.
+  - Ablations (exploratory) use the selected family for each tier and training condition.
+    - Every feature subset gets its own cross-validated hyperparameters per seed on `train`.
+      Results are `val_id` metrics averaged over the three seeds.
+    - The bare baseline is intercept-only, so `val_id` AUROC 0.5, AUPRC equal to prevalence, and
+      F1 equal to the all-hallucinated F1.
+    - Add-one-at-a-time is greedy forward selection. At each step it adds the feature with the
+      highest mean `train` cross-validated AP over seeds, with ties going to feature order;
+      `val_id` never chooses a feature.
+    - Leave-one-group-out uses three groups: evidence-dependent (F2–F5), evidence-free single-shot
+      (F6–F8), and self-consistency (F9). Each group is also reported alone.
+    - Gold-evidence ablations apply the retrieved-evidence subset models to gold features.
+  - Permutation importance is computed on `val_id` for each seed's selected classifier: 30 repeats,
+    `random_state` set to the seed, scored by AP. Stability across seeds is reported as pairwise
+    Spearman correlation of importances and the Jaccard overlap of the top three features.
+  - Redundancy. Pearson and Spearman correlation matrices are computed on `train` and on `val_id`,
+    per evidence condition. VIF is the diagonal of the inverse Pearson correlation matrix of each
+    tier's features.
+  - Datasets. `train` is TruthfulQA only and `val_id` is HaluEval only, so per-dataset results equal
+    per-split results. Evidence-condition effects are compared within `val_id`.
