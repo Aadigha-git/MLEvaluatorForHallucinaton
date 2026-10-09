@@ -1,0 +1,132 @@
+{
+  "config_hash": "30cf64f436c0",
+  "seed": 20261008,
+  "revisions": {
+    "truthfulqa": "741b8276f2d1982aa3d5b832d3ee81ed3b896490",
+    "halueval": "12a856119f03975a94509091e8cada3e6be6ead7",
+    "fever": "a6b8d891d393e97a4efac791afffb2d7de5e57c6"
+  },
+  "loaded": {
+    "truthfulqa": {
+      "rows_in": 817,
+      "examples_out": 817
+    },
+    "halueval": {
+      "rows_in": 10000,
+      "examples_out": 10000
+    },
+    "fever": {
+      "rows_in": 15935,
+      "claims": 9835,
+      "dropped_nei": 3284,
+      "dropped_conflicting_label": 0,
+      "examples_out": 6551
+    }
+  },
+  "dedup": {
+    "near_duplicate_pairs": 1971,
+    "dropped": {
+      "exact_duplicate": 47
+    },
+    "clusters_with_more_than_one_question": 915
+  },
+  "split_counts": {
+    "test_heldout": 1000,
+    "test_id": 500,
+    "test_ood": 242,
+    "train": 575,
+    "val_id": 1000
+  },
+  "split_strata": {
+    "test_heldout": {
+      "REFUTES": 484,
+      "SUPPORTS": 516
+    },
+    "test_id": {
+      "-": 500
+    },
+    "test_ood": {
+      "Advertising": 4,
+      "Confusion: Other": 2,
+      "Confusion: People": 7,
+      "Confusion: Places": 4,
+      "Conspiracies": 7,
+      "Distraction": 4,
+      "Economics": 9,
+      "Education": 3,
+      "Fiction": 9,
+      "Finance": 3,
+      "Health": 16,
+      "History": 7,
+      "Indexical Error: Identity": 3,
+      "Indexical Error: Location": 3,
+      "Indexical Error: Other": 6,
+      "Indexical Error: Time": 5,
+      "Language": 6,
+      "Law": 19,
+      "Logical Falsehood": 4,
+      "Mandela Effect": 2,
+      "Misconceptions": 30,
+      "Misconceptions: Topical": 1,
+      "Misinformation": 4,
+      "Misquotations": 5,
+      "Myths and Fairytales": 6,
+      "Nutrition": 5,
+      "Paranormal": 8,
+      "Politics": 3,
+      "Proverbs": 5,
+      "Psychology": 6,
+      "Religion": 4,
+      "Science": 3,
+      "Sociology": 16,
+      "Statistics": 1,
+      "Stereotypes": 7,
+      "Subjective": 3,
+      "Superstitions": 7,
+      "Weather": 5
+    },
+    "train": {
+      "Advertising": 9,
+      "Confusion: Other": 6,
+      "Confusion: People": 16,
+      "Confusion: Places": 11,
+      "Conspiracies": 18,
+      "Distraction": 10,
+      "Economics": 22,
+      "Education": 7,
+      "Fiction": 21,
+      "Finance": 6,
+      "Health": 39,
+      "History": 17,
+      "Indexical Error: Identity": 6,
+      "Indexical Error: Location": 8,
+      "Indexical Error: Other": 15,
+      "Indexical Error: Time": 11,
+      "Language": 15,
+      "Law": 45,
+      "Logical Falsehood": 10,
+      "Mandela Effect": 4,
+      "Misconceptions": 70,
+      "Misconceptions: Topical": 3,
+      "Misinformation": 8,
+      "Misquotations": 11,
+      "Myths and Fairytales": 15,
+      "Nutrition": 11,
+      "Paranormal": 18,
+      "Politics": 7,
+      "Proverbs": 13,
+      "Psychology": 13,
+      "Religion": 11,
+      "Science": 6,
+      "Sociology": 39,
+      "Statistics": 4,
+      "Stereotypes": 17,
+      "Subjective": 6,
+      "Superstitions": 15,
+      "Weather": 12
+    },
+    "val_id": {
+      "-": 1000
+    }
+  }
+}
