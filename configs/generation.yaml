@@ -1,0 +1,47 @@
+# Generation settings recorded in docs/PREREGISTRATION.md ("Generation").
+# Kept apart from default.yaml so the split config hash stays 30cf64f436c0.
+
+api:
+  base_url: https://api.tokenfactory.nebius.com/v1/
+  api_key_env: NEBIUS_API_KEY
+  timeout_s: 120
+  max_retries: 5
+  concurrency: 8
+  send_seed: true
+
+# Public Nebius Token Factory catalog, fetched on this date.
+catalog_snapshot: "2026-10-08"
+
+generators:
+  model_a:
+    model_id: Qwen/Qwen3-30B-A3B-Instruct-2507
+    hf_revision: 0d7cf23991f47feeb3a57ecb4c9cee8ea4a17bfe
+    region: eu-north1
+    quantization: fp8
+    usd_per_million_input_tokens: 0.10
+    usd_per_million_output_tokens: 0.30
+  model_b:
+    model_id: google/gemma-3-27b-it
+    hf_revision: 005ad3404e59d6023443cb575daa05336842228a
+    region: eu-north1
+    quantization: fp8
+    usd_per_million_input_tokens: 0.10
+    usd_per_million_output_tokens: 0.30
+
+prompts:
+  truthfulqa: qa-v1
+  halueval: qa-v1
+  fever: fever-v1
+
+max_tokens:
+  qa-v1: 128
+  fever-v1: 96
+
+primary: {temperature: 0.0, top_p: 1.0}
+resample: {n: 5, temperature: 0.7, top_p: 1.0}
+
+pilot:
+  seed: 20261008
+  questions: {truthfulqa: 7, halueval: 7, fever: 6}
+  # A second greedy call per question, to see whether greedy output is repeatable.
+  repeat_primary: true
