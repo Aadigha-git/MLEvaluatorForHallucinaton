@@ -1,8 +1,9 @@
 # Pre-registration
 
-Drafted 2026-10-08, revised 2026-10-08. **Status: draft, not frozen.** It cannot be frozen while
-any item under [Open items](#open-items) is unresolved. Freeze by adding a dated "Frozen on" line
-before the first test-split run. After freezing, changes go in the amendment log at the bottom
+Drafted 2026-10-08, revised 2026-10-08. **Status: frozen.**
+
+**Frozen on 2026-10-08**, before full generation and before any test-split run. All open items
+required for freezing are resolved. From here on, changes go in the amendment log at the bottom
 with a date and a reason; nothing above the log is edited.
 
 ## Label taxonomy
