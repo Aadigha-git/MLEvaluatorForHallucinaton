@@ -650,6 +650,12 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
 
     Both audit rounds, their keys, and their hand labels are kept as recorded. No kappa was
     recomputed under alternative hand labels.
-  - **Still open.** How the HaluEval labels are used given the failed gate is not yet decided: as
-    is with this limitation reported, or otherwise. Training (Step 6) does not run until it is
-    decided and logged.
+  - **Use of the labels.** HaluEval labels from rule version 2 are used as they are, for `val_id`
+    and `test_id`. Every report that shows HaluEval results states that the HaluEval agreement gate
+    failed and gives both rounds' kappas (0.7117 and 0.578). Nothing else changes.
+  - **Considered and dropped: a sensitivity analysis.** It would have re-reported HaluEval results
+    without the answers labeled hallucinated by the "asserts a different answer" branch. That
+    branch produces 592 of the 597 automatic hallucinated labels in `val_id`, so removing those
+    answers would leave almost no hallucinated cases, and the analysis would mostly measure the
+    change in class balance. Counts come from the `val_id` label file only; `test_id` was not
+    inspected.
