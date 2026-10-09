@@ -1,0 +1,372 @@
+{
+  "created_at": "2026-10-09T02:32:37+00:00",
+  "complete": true,
+  "halted": null,
+  "generation_config_hash": "8b97cf3e4cae",
+  "split_config_hash": "30cf64f436c0",
+  "split_manifest_sha256": "72398783e968f736556e6d05f489f4b9f44cb2e886506fa3b59370810fad0ef2",
+  "price_snapshot": "2026-10-08",
+  "concurrency": 8,
+  "budget_usd": 1.0,
+  "files": {
+    "train": {
+      "path": "data/generations/train.jsonl",
+      "sha256": "7c69d28f6a0bec5788a05ca1cb31eab9f20a56722e3d3d32e0decc67bf45896f",
+      "rows": 3450,
+      "generator": "model_a"
+    },
+    "val_id": {
+      "path": "data/generations/val_id.jsonl",
+      "sha256": "70b497ea347ebb59aac293946b17de016cdb5f2907eac7d3bc3d5c2e501f3155",
+      "rows": 6000,
+      "generator": "model_a"
+    },
+    "test_id": {
+      "path": "data/generations/test_id.jsonl",
+      "sha256": "fda3e81dad05457328f2db9dfadc86f164781c8e7ee1f1dcc5a9e4fd1dae3f8a",
+      "rows": 3000,
+      "generator": "model_a"
+    },
+    "test_ood": {
+      "path": "data/generations/test_ood.jsonl",
+      "sha256": "2c2956ccc414cfdb072070fa303a0268ab6aa2d9da5d266ba1ab404e0f402f5a",
+      "rows": 1452,
+      "generator": "model_b"
+    },
+    "test_heldout": {
+      "path": "data/generations/test_heldout.jsonl",
+      "sha256": "fdbfdf346bb1d8cf1afab79820d49dd1386ba35437f1462b2a1254ad8b7845fb",
+      "rows": 6000,
+      "generator": "model_b"
+    }
+  },
+  "totals": {
+    "planned_calls": 19902,
+    "calls_made": 19902,
+    "calls_errored": 0,
+    "cost_usd": 0.334475
+  },
+  "splits": {
+    "train": {
+      "questions": 575,
+      "planned_calls": 3450,
+      "calls_made": 3450,
+      "calls_errored": 0,
+      "status": {
+        "primary": {
+          "ok": 575
+        },
+        "resample": {
+          "ok": 2875,
+          "truncated": 4
+        }
+      },
+      "usable_resamples_per_question": {
+        "5": 575
+      },
+      "finish_reasons": {
+        "stop": 3446,
+        "length": 4
+      },
+      "models_returned": {
+        "Qwen/Qwen3-30B-A3B-Instruct-2507": 3450
+      },
+      "system_fingerprints": 1,
+      "tokens": {
+        "prompt": 113664,
+        "completion": 161259
+      },
+      "cost_usd": {
+        "complete": true,
+        "primary": 0.009939,
+        "resamples": 0.049805,
+        "total": 0.059744,
+        "resamples_per_question_mean": 8.662e-05
+      },
+      "latency_s": {
+        "primary_call": {
+          "n": 575,
+          "p50": 0.6311,
+          "p95": 1.4441
+        },
+        "resample_call": {
+          "n": 2875,
+          "p50": 0.6404,
+          "p95": 1.4545
+        },
+        "resamples_parallel_equivalent": {
+          "n": 575,
+          "p50": 0.7556,
+          "p95": 1.7132
+        },
+        "resamples_sequential": {
+          "n": 575,
+          "p50": 3.2083,
+          "p95": 6.9103
+        }
+      },
+      "wall_clock_s": 317.0
+    },
+    "val_id": {
+      "questions": 1000,
+      "planned_calls": 6000,
+      "calls_made": 6000,
+      "calls_errored": 0,
+      "status": {
+        "primary": {
+          "ok": 1000,
+          "truncated": 3
+        },
+        "resample": {
+          "ok": 5000,
+          "truncated": 18
+        }
+      },
+      "usable_resamples_per_question": {
+        "5": 1000
+      },
+      "finish_reasons": {
+        "stop": 5979,
+        "length": 21
+      },
+      "models_returned": {
+        "Qwen/Qwen3-30B-A3B-Instruct-2507": 6000
+      },
+      "system_fingerprints": 1,
+      "tokens": {
+        "prompt": 271032,
+        "completion": 225283
+      },
+      "cost_usd": {
+        "complete": true,
+        "primary": 0.015784,
+        "resamples": 0.078904,
+        "total": 0.094688,
+        "resamples_per_question_mean": 7.89e-05
+      },
+      "latency_s": {
+        "primary_call": {
+          "n": 1000,
+          "p50": 0.9851,
+          "p95": 3.5583
+        },
+        "resample_call": {
+          "n": 5000,
+          "p50": 0.9943,
+          "p95": 3.2126
+        },
+        "resamples_parallel_equivalent": {
+          "n": 1000,
+          "p50": 1.1583,
+          "p95": 5.0452
+        },
+        "resamples_sequential": {
+          "n": 1000,
+          "p50": 4.988,
+          "p95": 15.9246
+        }
+      },
+      "wall_clock_s": 993.4
+    },
+    "test_id": {
+      "questions": 500,
+      "planned_calls": 3000,
+      "calls_made": 3000,
+      "calls_errored": 0,
+      "status": {
+        "primary": {
+          "ok": 500,
+          "truncated": 2
+        },
+        "resample": {
+          "ok": 2500,
+          "truncated": 8
+        }
+      },
+      "usable_resamples_per_question": {
+        "5": 500
+      },
+      "finish_reasons": {
+        "stop": 2990,
+        "length": 10
+      },
+      "models_returned": {
+        "Qwen/Qwen3-30B-A3B-Instruct-2507": 3000
+      },
+      "system_fingerprints": 1,
+      "tokens": {
+        "prompt": 133812,
+        "completion": 115787
+      },
+      "cost_usd": {
+        "complete": true,
+        "primary": 0.008001,
+        "resamples": 0.040116,
+        "total": 0.048117,
+        "resamples_per_question_mean": 8.023e-05
+      },
+      "latency_s": {
+        "primary_call": {
+          "n": 500,
+          "p50": 0.6936,
+          "p95": 1.3212
+        },
+        "resample_call": {
+          "n": 2500,
+          "p50": 0.6797,
+          "p95": 1.3417
+        },
+        "resamples_parallel_equivalent": {
+          "n": 500,
+          "p50": 0.8037,
+          "p95": 1.4618
+        },
+        "resamples_sequential": {
+          "n": 500,
+          "p50": 3.4764,
+          "p95": 6.2837
+        }
+      },
+      "wall_clock_s": 283.1
+    },
+    "test_ood": {
+      "questions": 242,
+      "planned_calls": 1452,
+      "calls_made": 1452,
+      "calls_errored": 0,
+      "status": {
+        "primary": {
+          "ok": 242
+        },
+        "resample": {
+          "ok": 1210,
+          "truncated": 3
+        }
+      },
+      "usable_resamples_per_question": {
+        "5": 242
+      },
+      "finish_reasons": {
+        "stop": 1449,
+        "length": 3
+      },
+      "models_returned": {
+        "google/gemma-3-27b-it": 1452
+      },
+      "system_fingerprints": 1,
+      "tokens": {
+        "prompt": 50478,
+        "completion": 83315
+      },
+      "cost_usd": {
+        "complete": true,
+        "primary": 0.005045,
+        "resamples": 0.024997,
+        "total": 0.030042,
+        "resamples_per_question_mean": 0.00010329
+      },
+      "latency_s": {
+        "primary_call": {
+          "n": 242,
+          "p50": 1.0191,
+          "p95": 3.6065
+        },
+        "resample_call": {
+          "n": 1210,
+          "p50": 1.0015,
+          "p95": 3.3018
+        },
+        "resamples_parallel_equivalent": {
+          "n": 242,
+          "p50": 1.1646,
+          "p95": 4.0847
+        },
+        "resamples_sequential": {
+          "n": 242,
+          "p50": 5.2025,
+          "p95": 15.0177
+        }
+      },
+      "wall_clock_s": 257.9
+    },
+    "test_heldout": {
+      "questions": 1000,
+      "planned_calls": 6000,
+      "calls_made": 6000,
+      "calls_errored": 0,
+      "status": {
+        "primary": {
+          "ok": 1000
+        },
+        "resample": {
+          "ok": 5000
+        }
+      },
+      "usable_resamples_per_question": {
+        "5": 1000
+      },
+      "finish_reasons": {
+        "stop": 6000
+      },
+      "models_returned": {
+        "google/gemma-3-27b-it": 6000
+      },
+      "system_fingerprints": 1,
+      "tokens": {
+        "prompt": 355302,
+        "completion": 221178
+      },
+      "cost_usd": {
+        "complete": true,
+        "primary": 0.016881,
+        "resamples": 0.085003,
+        "total": 0.101884,
+        "resamples_per_question_mean": 8.5e-05
+      },
+      "latency_s": {
+        "primary_call": {
+          "n": 1000,
+          "p50": 0.8236,
+          "p95": 1.8351
+        },
+        "resample_call": {
+          "n": 5000,
+          "p50": 0.8269,
+          "p95": 1.761
+        },
+        "resamples_parallel_equivalent": {
+          "n": 1000,
+          "p50": 0.9904,
+          "p95": 2.1192
+        },
+        "resamples_sequential": {
+          "n": 1000,
+          "p50": 4.2439,
+          "p95": 8.4646
+        }
+      },
+      "wall_clock_s": 722.3
+    }
+  },
+  "backups": [
+    {
+      "dest": "/Users/baaad/Library/Mobile Documents/com~apple~CloudDocs/hdetect-backups/generations-2026-10-08",
+      "verified_at": "2026-10-09T02:34:36+00:00",
+      "hashes_match": {
+        "train": true,
+        "val_id": true,
+        "test_id": true,
+        "test_ood": true,
+        "test_heldout": true
+      },
+      "restore_matches": {
+        "train": true,
+        "val_id": true,
+        "test_id": true,
+        "test_ood": true,
+        "test_heldout": true
+      },
+      "ok": true
+    }
+  ]
+}

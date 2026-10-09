@@ -12,3 +12,4 @@ data/audit/*
 !data/audit/.gitkeep
 data/pilot/
 data/generations/
+logs/
