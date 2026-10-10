@@ -1,0 +1,74 @@
+# Step 8 LLM-judge baselines (docs/PREREGISTRATION.md, amendment log, "Step 8 judge configuration").
+# `status: provisional` allows only the synthetic smoke test (scripts/judge_smoke.py --confirm).
+# Benchmark calls on val_id require `status: frozen`, set by amendment after the smoke tests
+# (amendment 2026-10-09, "Step 8 configuration frozen").
+
+status: frozen
+
+# Prices archived in reports/step8/price_snapshot.json (retrieved 2026-10-10 UTC).
+price_snapshot: "2026-10-10"
+
+budget:
+  # Covers every Step 8 development call, smoke tests included. Set after the smoke tests
+  # (amendment 2026-10-09, "Step 8 smoke tests and final budget cap"); any change is made by amendment.
+  cap_usd: 35.0
+
+max_attempts: 5
+max_retries: 5
+timeout_s: 120
+concurrency: 8
+
+judges:
+  small:
+    provider: nebius
+    model_id: nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B
+    base_url: https://api.tokenfactory.nebius.com/v1/
+    api_key_env: NEBIUS_API_KEY
+    region: eu-north1
+    quantization: fp8
+    usd_per_million_input_tokens: 0.06
+    usd_per_million_output_tokens: 0.24
+    temperature: 0.0
+    top_p: 1.0
+    max_output_tokens: 64
+    # NVIDIA's documented switch; Nebius does not document it, so the smoke test must confirm it.
+    chat_template_kwargs: {enable_thinking: false}
+  frontier:
+    provider: gemini
+    model_id: gemini-3.1-pro-preview
+    base_url: https://generativelanguage.googleapis.com/v1beta/
+    api_key_env: GEMINI_API_KEY
+    # Paid tier, prompts <= 200k tokens. Output price includes thinking tokens.
+    usd_per_million_input_tokens: 2.00
+    usd_per_million_output_tokens: 12.00
+    max_prompt_tokens_at_price: 200000
+    # Deviation from the temperature-0 rule, approved by the project owner: Google recommends the
+    # default 1.0 for Gemini 3 models and warns of looping below it.
+    temperature: 1.0
+    # Thinking cannot be disabled on Gemini 3.1 Pro; low is the lowest supported level.
+    thinking_level: low
+    # Includes thinking tokens (Gemini thinking guide), so it bounds billed output per call.
+    max_output_tokens: 2048
+
+prompts:
+  variants: [judge-v1a, judge-v1b, judge-v1c, judge-v1d]
+  conditions: [retrieved, none]
+  evidence_passages: 5
+
+selection:
+  split: val_id
+  metric: f1_hallucinated
+  # Per judge and evidence condition. Ties (F1 rounded to 12 decimals) go to fewer parse failures,
+  # then to the earlier variant in `prompts.variants`.
+  per: [judge, condition]
+
+repeatability:
+  subset_file: configs/judge_repeat_subset.txt
+  subset_size: 200
+  subset_seed: 20261012
+  extra_runs: 2
+
+paths:
+  outputs: data/judges
+  reports: reports/step8
+  retrieval: data/features/retrieval

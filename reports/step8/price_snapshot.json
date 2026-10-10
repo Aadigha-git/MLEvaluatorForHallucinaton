@@ -1,0 +1,36 @@
+{
+  "snapshot": "2026-10-10",
+  "units": "USD per 1,000,000 tokens, as reported by the provider's API usage fields",
+  "judges": {
+    "small": {
+      "provider": "Nebius Token Factory",
+      "model_id": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+      "status": "active",
+      "region": "eu-north1",
+      "quantization": "fp8",
+      "context_tokens": 262144,
+      "usd_per_million_input_tokens": 0.06,
+      "usd_per_million_output_tokens": 0.24,
+      "output_includes_reasoning": "yes, if any is generated; reasoning is disabled by configuration",
+      "source": "https://tokenfactory.nebius.com/api/public/models_info",
+      "retrieved_utc": "2026-10-10T00:33:01Z",
+      "archived_copy": "reports/step8/price_snapshot/nebius_models_info_2026-10-10.json",
+      "archived_sha256": "6ae551f7efe72ee47c6220c08b6e3ec9399b16ae7670199cf2956890d372b22a"
+    },
+    "frontier": {
+      "provider": "Google Gemini API (paid tier, Standard)",
+      "model_id": "gemini-3.1-pro-preview",
+      "status": "preview",
+      "usd_per_million_input_tokens": 2.0,
+      "usd_per_million_output_tokens": 12.0,
+      "price_tier": "prompts <= 200,000 tokens",
+      "output_includes_thinking": true,
+      "billed_output_tokens": "candidatesTokenCount + thoughtsTokenCount",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "model_list_source": "https://ai.google.dev/gemini-api/docs/models",
+      "retrieved_utc": "2026-10-10T00:50:00Z (approximate)",
+      "archived_copy": "reports/step8/price_snapshot/gemini_pricing_excerpt_2026-10-10.md",
+      "archived_sha256": "04b2c271e4a79b824c2171e3a36753e4777bdb7eecb2a7baf9b4e89062a4e09b"
+    }
+  }
+}

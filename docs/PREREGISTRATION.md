@@ -714,3 +714,185 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
     - degenerate and skipped bootstrap replicate counts are given for every interval, including
       differences;
     - identical rows in the two-group leave-one-group-out ablations are labeled as such.
+- **2026-10-09, Step 8 LLM-judge configuration (provisional; recorded before any judge call).**
+  This resolves the open item "judge model IDs" and fixes the judge protocol that docs/SPEC.md
+  ("LLM-judge fairness") leaves open. The settings are in `configs/judges.yaml`, which has
+  `status: provisional`. In that state, the only call allowed is one synthetic, non-benchmark smoke
+  test per judge (`scripts/judge_smoke.py --confirm`). Benchmark calls on `val_id` refuse to start
+  until a later amendment sets `status: frozen`. That amendment needs both smoke tests to pass and
+  a final budget cap. No test split is read or judged in Step 8.
+  - **Judges.**
+    - Small open-weight judge: `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` on Nebius Token Factory
+      (eu-north1, FP8, key `NEBIUS_API_KEY`). It is NVIDIA's own model, trained from scratch, and
+      the same size class as Model A (30B total, 3B active). Settings: temperature 0, top-p 1.0,
+      at most 64 output tokens, and reasoning off via `chat_template_kwargs: {enable_thinking:
+      false}`.
+    - Frontier judge: `gemini-3.1-pro-preview` on the Gemini API (key `GEMINI_API_KEY`), called
+      through the native `generateContent` endpoint so that thinking tokens are reported. Settings:
+      temperature 1.0, thinking level `low`, and at most 2,048 output tokens, thinking included.
+    - Prices are from the dated snapshot `reports/step8/price_snapshot.json` (retrieved
+      2026-10-10 UTC, with archived copies and SHA-256 hashes), in USD per million API-reported
+      tokens:
+      - Nemotron: $0.06 input, $0.24 output;
+      - Gemini: $2.00 input and $12.00 output, paid tier, prompts up to 200,000 tokens. Output
+        includes thinking tokens, so billed output = `candidatesTokenCount` +
+        `thoughtsTokenCount`.
+  - **Verified provider constraints** (provider documentation, 2026-10-09):
+    - Gemini 3.1 Pro cannot turn thinking off; its lowest level is `low`. Google "strongly
+      recommend[s]" temperature 1.0 for Gemini 3 models and warns that lower values may cause
+      looping or degraded performance.
+    - The Nemotron reasoning switch is documented by NVIDIA but not by Nebius. The smoke test
+      checks that no reasoning text is returned. If reasoning cannot be turned off, work stops for
+      a decision; there is no silent fallback.
+    - Also considered, not chosen: GPT-6 Sol (`gpt-6-sol`) accepts sampling parameters only at
+      reasoning effort `none`; GPT-6.1 Sol, GPT-6 Astra, and the Claude 5.5 models do not accept
+      temperature 0.
+  - **Deviations, approved by the project owner and disclosed in every judge result:**
+    - The frontier judge runs at temperature 1.0, not the spec's temperature zero.
+    - The frontier judge thinks before answering (level `low`).
+    - Gemini and generator Model B (Gemma) both come from Google, and Gemma is built from Gemini
+      research. The pre-registration excludes the Qwen and Gemma families by name. Gemini is a
+      different family, but self-preference toward Model B's answers (`test_ood`,
+      `test_heldout`) cannot be ruled out. This is recorded as a limitation.
+    - `gemini-3.1-pro-preview` is a preview model and can be withdrawn with two weeks' notice. If it
+      becomes unavailable before Step 9, work stops for a decision; no other model is substituted.
+  - **Inputs.** The judge gets the classifier's inputs:
+    - the question (the claim for FEVER);
+    - the cleaned primary answer;
+    - under retrieved evidence, the same top 5 BM25 passages as `"{title}: {text}"`.
+
+    Under no evidence, the evidence section is left out. Each prompt is sent as one user message
+    with no system message. No seed is sent, and log probabilities are not requested.
+  - **Conditions.** Retrieved and no evidence. Gold evidence is exploratory in this protocol and is
+    not run for the judges.
+  - **Prompt variants.** Four are pre-specified in `src/hdetect/judging/prompts.py`, with template
+    hashes pinned in `configs/judge_prompt_hashes.json`:
+    - `judge-v1a`: a one-sentence definition;
+    - `judge-v1b`: a full rubric following LABELING.md (only the asked-for answer or verdict is
+      judged, abstentions are not hallucinated, a hedged guess is judged on the guess);
+    - `judge-v1c`: the rubric plus guidance on using evidence;
+    - `judge-v1d`: the rubric plus three invented examples.
+
+    Every variant asks for strict JSON: `{"verdict": "hallucinated"}` or
+    `{"verdict": "not_hallucinated"}`.
+  - **Parsing.** A verdict is valid only as a JSON object with exactly the key `verdict` and one of
+    the two values, optionally inside one Markdown code fence. Every other output is a parse
+    failure with a named outcome: `empty`, `not_json`, `wrong_schema`, `invalid_verdict`,
+    `blocked` (provider safety or recitation stop), or `reasoning_leak`. Nothing is repaired.
+  - **Retries and failures.** These follow "Storage, retries, and failures":
+    - Transient API errors (408, 429, 5xx, and transport errors; 409 too for Nebius, as the
+      `openai` package retries it) are retried 5 times with backoff inside an attempt, for up to 5
+      attempts.
+    - Other 4xx errors stop the run.
+    - A call whose HTTP request succeeded is final, so malformed output is never re-requested.
+  - **Scoring.** Only the 995 labeled `val_id` answers are judged. The 5 undecidable answers are
+    never sent to a judge.
+    - In the primary F1, an answer with no valid verdict (any parse failure, or an API failure
+      after 5 attempts) counts as wrong: a false negative if hallucinated, a false positive if not.
+    - Parse-failure and API-failure counts by outcome, and F1 on parsed verdicts only (with its n),
+      are reported beside it.
+  - **Prompt selection.** For each judge and evidence condition, the winner is the variant with the
+    highest hallucinated-class F1 on the 995 answers. Ties, after rounding F1 to 12 decimals, go to
+    fewer failures and then to the earlier variant. The choice is written to
+    `reports/step8/selected_prompts.json` and committed before any test-split judge call.
+  - **Repeatability.** The subset is `configs/judge_repeat_subset.txt`: 200 answer IDs drawn by
+    seeded simple random sampling (seed 20261012) from the 995 labeled `val_id` answers. It was
+    written before any judge call, with SHA-256
+    `e4694d3de242b621bd09914b28e31d4309df968cd5a52291d3a9aa199372484c`.
+    - The frozen prompt runs twice more per answer and evidence condition. The tuning run counts
+      as run 0.
+    - Reported: the share of answers with identical outcomes in all three runs, pairwise
+      agreement, and verdict flips. A failure counts as its own outcome.
+  - **Planned calls** per judge: 4 variants × 2 conditions × 995 answers = 7,960 tuning calls, plus
+    2 runs × 2 conditions × 200 answers = 800 repeat calls, for 8,760 in all. Estimated cost,
+    measured on `val_id` prompt sizes (about 1,116 input tokens with retrieved evidence and 333
+    without):
+    - Nemotron: about $0.40.
+    - Gemini input: about $12.70.
+    - Gemini output: about $0.12 per 1,000 calls for each 10 output tokens per call. At 100
+      thinking tokens and 10 answer tokens per call, Gemini's total is about $24.26, above the
+      provisional cap on its own.
+  - **Budget guard.** One cap covers every Step 8 call, smoke tests included. It is provisionally
+    **$20.00**, and the final cap is set by amendment after the smoke tests measure Gemini's
+    thinking tokens.
+    - Before each call, the spend so far, plus the upper bounds reserved for calls in flight, plus
+      this call's upper bound, must stay within the cap.
+    - A call's upper bound is its prompt length in characters as input tokens, plus its maximum
+      output tokens, priced at the snapshot.
+    - Spend is rebuilt from the stored rows, so the cap holds across runs.
+    - A call with unreported usage is charged its upper bound. A failed call is charged nothing,
+      and its cost is reported as unknown.
+  - **Cost reporting.** API-reported input and output tokens are multiplied by the snapshot prices.
+    Cost per verdict is the mean over the 995 judged answers.
+  - **Latency.** Per "Cost and latency": retrieval time (retrieved condition only), plus API
+    wall-clock including in-call retries, plus verdict parsing.
+    - Calls run at concurrency 8, which is stated with every latency.
+    - Medians and 95th percentiles are reported for all calls and, separately, for calls whose
+      output failed to parse.
+  - **Recorded per call** (`data/judges/`, git-ignored):
+    - request settings, the model ID returned, the response ID, and the finish reason;
+    - input, output, and thinking tokens;
+    - the raw output, parse outcome, verdict, cost, latency, timestamps, and attempt number;
+    - the prompt's SHA-256, never the prompt itself.
+  - **Comparison scope.** In Step 9, the judges enter the pre-declared baseline table and the
+    F1-versus-cost Pareto chart. Their costs are not added to the classifier's escalation policy,
+    because the protocol defines no combined cascade.
+  - **Isolation.** The judge code reads `val_id` only and has no switch for test splits. Tests check
+    that it names no test split, and every run records the files it opens under `data/` and fails
+    if one belongs to a test split. Judging the test splits needs its own entry point under
+    `ml/evaluation/`, added in Step 9.
+  - **Audit plan.**
+    - Before the first benchmark call:
+      - both smoke tests pass;
+      - the final cap and `status: frozen` are recorded by amendment and committed from a clean
+        tree;
+      - the prompt-template, repeat-subset, and judge-config hashes match this entry.
+    - After each stage:
+      - every planned call is accounted for (successful plus failed equals planned);
+      - parse outcomes are tabulated per judge, variant, and condition;
+      - cost is recomputed from stored tokens and snapshot prices, and must equal the guard's
+        ledger;
+      - the data-access table shows no test-split file.
+    - `reports/step8/manifest.json` records the output-file hashes, config hashes, spend, and git
+      commit.
+  - **Implementation choices made here, which the protocol did not specify:**
+    - failures are scored as wrong;
+    - the prompt is selected per judge and evidence condition, with the tie-break rule above;
+    - one surrounding code fence is accepted;
+    - no seed is sent;
+    - output caps are 64 tokens (Nemotron) and 2,048 tokens including thinking (Gemini);
+    - the repeat subset is a simple random sample.
+- **2026-10-09, Step 8 smoke tests and final budget cap.** Each judge got one synthetic smoke
+  call (invented item, `judge-v1b`, retrieved condition). No benchmark data was read or sent.
+  - **Nemotron.** It passed every check:
+    - returned model `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`, finish reason `stop`;
+    - parsed verdict `not_hallucinated`, which is correct for the invented item;
+    - 361 input and 12 output tokens, cost $0.0000245, API latency 0.85 s;
+    - no reasoning field and no `<think>` text, so Nebius honoured `enable_thinking: false`.
+  - **Gemini.** It passed every check:
+    - returned model `gemini-3.1-pro-preview`, finish reason `STOP`;
+    - parsed verdict `not_hallucinated`, which is correct;
+    - 348 input and 88 output tokens, of which 72 were thinking tokens;
+    - cost $0.001752, API latency 3.45 s.
+  - Spend after both smoke tests, rebuilt from the stored rows: $0.0018.
+  - **Projection.** For the 8,760 planned calls per judge, at the measured 88 Gemini output tokens
+    per call, the total is about $22.35 (Gemini $21.94, Nemotron $0.41). With a 25% margin, that
+    is about $27.94. The smoke item is short and easy, so real `val_id` items may need more
+    thinking: at 150 output tokens per call, the total is about $28.87.
+  - **Final cap.** The project owner set the Step 8 cap to **$35.00**. It replaces the provisional
+    $20.00 and covers every Step 8 call, smoke tests included. The guard is unchanged. If the cap
+    would be exceeded, the run stops cleanly, and any further raise needs its own amendment.
+  - `configs/judges.yaml` stays `status: provisional`. Freezing it is a separate amendment,
+    committed from a clean tree as the audit plan requires.
+- **2026-10-09, Step 8 configuration frozen (recorded before any benchmark judge call).**
+  - The project owner approved the six implementation choices listed in the Step 8 configuration
+    entry, and the configuration is frozen as specified there. The final cap is **$35.00**.
+  - `configs/judges.yaml` now has `status: frozen`, with judge-config hash `485ca71cb4b1` (as
+    computed by `hdetect.judging.config`) and file SHA-256
+    `46519dd88985e9f7c49e240e04006fc5a3007ef63c288a4639efbf0963d86b79`.
+  - Checked before the first benchmark call:
+    - all four prompt-template hashes match `configs/judge_prompt_hashes.json`;
+    - the repeat subset's SHA-256 matches the value recorded above;
+    - both smoke tests passed.
+  - Next: prompt tuning on the 995 labeled `val_id` answers, for both judges and both evidence
+    conditions. No test split is read or judged.
