@@ -20,7 +20,9 @@ from hdetect.judging.clients import (
     GeminiJudgeClient,
     JudgeCompletion,
     NebiusJudgeClient,
+    QuotaExhausted,
     parse_gemini_response,
+    quota_exhausted,
 )
 from hdetect.judging.config import load_judge_config, parse_judge_config
 from hdetect.judging.inputs import load_judge_inputs
@@ -73,6 +75,8 @@ def test_config_matches_the_amendment(cfg):
     assert (frontier.usd_per_million_input_tokens, frontier.usd_per_million_output_tokens) == (2.0, 12.0)
     assert (frontier.temperature, frontier.thinking_level) == (1.0, "low")
     assert (frontier.max_requests_per_minute, small.max_requests_per_minute) == (20, None)
+    assert (frontier.cap_usd, frontier.tune_first_n, frontier.repeat_first_n) == (5.0, 120, 40)
+    assert (small.cap_usd, small.tune_first_n, small.repeat_first_n) == (None, None, None)
     assert cfg.variants == tuple(VARIANTS) and cfg.conditions == ("retrieved", "none")
     assert (cfg.repeat_subset_size, cfg.repeat_extra_runs) == (200, 2)
 
@@ -90,6 +94,9 @@ def test_config_matches_the_amendment(cfg):
     lambda r: r["repeatability"].update(subset_size=100),
     lambda r: r.update(status="final"),
     lambda r: r["judges"]["frontier"].update(max_requests_per_minute=0),
+    lambda r: r["judges"]["frontier"].update(cap_usd=50.0),
+    lambda r: r["judges"]["frontier"].update(repeat_first_n=121),
+    lambda r: r["judges"]["frontier"].pop("repeat_first_n"),
 ])
 def test_config_rejects_changes_to_the_frozen_design(edit):
     raw = copy.deepcopy(raw_config())
@@ -369,6 +376,44 @@ def test_throttle_wait_and_retries_are_recorded_outside_latency(cfg, tmp_path):
     r = read_rows(out)[0]
     assert (r["throttle_wait_s"], r["transient_retries"], r["retry_wait_s"]) == (2.5, 1, 1.2)
     assert r["latency_s"] < 2.5
+
+
+def test_quota_errors_are_classified():
+    assert quota_exhausted(429, "Quota exceeded for metric: generate_requests_per_model_per_day").kind == "daily"
+    assert quota_exhausted(429, "Your project has exceeded its monthly spending cap.").kind == "spend_cap"
+    assert quota_exhausted(429, "Quota exceeded for metric: generate_requests_per_model, limit: 25") is None
+    assert quota_exhausted(503, "per_day") is None
+
+
+def test_gemini_does_not_retry_an_exhausted_daily_quota(cfg):
+    sleeps = []
+    client, sent = gemini(cfg, [(429, {"error": {"message": "generate_requests_per_model_per_day"}})], sleeps)
+    with pytest.raises(QuotaExhausted) as e:
+        client.complete("p")
+    assert e.value.kind == "daily" and len(sent) == 1 and sleeps == []
+
+
+def test_exhausted_quota_halts_the_run_without_using_an_attempt(cfg, tmp_path):
+    spec = cfg.judges["frontier"]
+    reqs = plan([item(0), item(1)], spec, ["judge-v1a"], ["none"])
+    client = FakeClient([QuotaExhausted("daily", "per_day")])
+    with pytest.raises(QuotaExhausted):
+        run_requests(reqs, {"frontier": client}, cfg.judges, tmp_path / "f.jsonl", Budget(45.0, cfg.judges))
+    assert read_rows(tmp_path / "f.jsonl") == []
+
+
+def test_a_judge_cap_binds_inside_the_global_cap(cfg, tmp_path):
+    spec = cfg.judges["frontier"]
+    reqs = plan([item(0), item(1)], spec, ["judge-v1b"], ["retrieved"])
+    bound = Budget(45.0, cfg.judges).upper_bound("frontier", reqs[0].prompt)
+    rows = [{"judge": "frontier", "charged_usd": 5.0 - bound * 1.5}, {"judge": "small", "charged_usd": 10.0}]
+    budget = Budget.from_rows(45.0, cfg.judges, rows)
+    assert budget.spent == pytest.approx(15.0 - bound * 1.5)
+    client = FakeClient([completion(input_tokens=len(reqs[0].prompt), output_tokens=2048)])
+    with pytest.raises(BudgetExceeded, match="frontier"):
+        run_requests(reqs, {"frontier": client}, cfg.judges, tmp_path / "f.jsonl", budget)
+    assert client.calls == 1 and budget.judge_spent["frontier"] <= 5.0
+    assert budget.judge_reserved["frontier"] == pytest.approx(0.0)
 
 
 def test_cache_mismatch_aborts_before_any_call(cfg, tmp_path):

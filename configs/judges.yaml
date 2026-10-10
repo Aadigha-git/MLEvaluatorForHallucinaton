@@ -52,6 +52,12 @@ judges:
     # Client-side throttle below the key's 25 requests/minute quota for gemini-3.1-pro; waits are
     # recorded as throttle_wait_s and excluded from latency.
     max_requests_per_minute: 20
+    # Reduced plan (amendment 2026-10-10, "Step 8 reduced Gemini plan"): the key allows 250 requests
+    # per day. Gemini's own cap covers all its calls, smoke test included; tuning uses the first 120
+    # labeled val_id answers in answer-ID order, and repeat runs use the first 40 of those.
+    cap_usd: 5.0
+    tune_first_n: 120
+    repeat_first_n: 40
 
 prompts:
   variants: [judge-v1a, judge-v1b, judge-v1c, judge-v1d]

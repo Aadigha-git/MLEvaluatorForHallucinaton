@@ -17,7 +17,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from hdetect.judging.clients import JudgeClient
+from hdetect.judging.clients import JudgeClient, QuotaExhausted
 from hdetect.judging.config import JudgeSpec
 from hdetect.judging.parse import parse_verdict
 from hdetect.judging.prompts import render
@@ -127,15 +127,27 @@ def check_cache(requests: Iterable[JudgeRequest], rows: Iterable[dict]) -> None:
 
 class Budget:
     """Refuses a call when spend so far, plus reserved upper bounds of calls in flight, plus this call's
-    upper bound would exceed the cap. Upper bound: prompt characters as input tokens (never fewer than
-    the tokenizer count) plus the maximum output tokens, priced at the snapshot."""
+    upper bound would exceed the cap, or the judge's own cap if it has one. Upper bound: prompt
+    characters as input tokens (never fewer than the tokenizer count) plus the maximum output tokens,
+    priced at the snapshot."""
 
-    def __init__(self, cap_usd: float, specs: Mapping[str, JudgeSpec], spent: float = 0.0):
+    def __init__(self, cap_usd: float, specs: Mapping[str, JudgeSpec], spent: float = 0.0,
+                 judge_spent: Mapping[str, float] | None = None):
         self.cap = cap_usd
         self.specs = dict(specs)
         self.spent = spent
         self.reserved = 0.0
+        self.judge_spent = Counter(judge_spent or {})
+        self.judge_reserved: Counter = Counter()
         self._lock = threading.Lock()
+
+    @classmethod
+    def from_rows(cls, cap_usd: float, specs: Mapping[str, JudgeSpec], rows: Iterable[dict]) -> "Budget":
+        rows = list(rows)
+        per_judge: Counter = Counter()
+        for r in rows:
+            per_judge[r["judge"]] += r.get("charged_usd", 0.0)
+        return cls(cap_usd, specs, spent_usd(rows), per_judge)
 
     def upper_bound(self, judge: str, prompt: str) -> float:
         spec = self.specs[judge]
@@ -145,17 +157,25 @@ class Budget:
 
     def reserve(self, judge: str, prompt: str) -> float:
         bound = self.upper_bound(judge, prompt)
+        judge_cap = self.specs[judge].cap_usd
         with self._lock:
             if self.spent + self.reserved + bound > self.cap:
                 raise BudgetExceeded(f"spent ${self.spent:.4f} of the ${self.cap:.2f} cap; next call may cost "
                                      f"up to ${bound:.4f}")
+            if judge_cap is not None and self.judge_spent[judge] + self.judge_reserved[judge] + bound > judge_cap:
+                raise BudgetExceeded(f"{judge}: spent ${self.judge_spent[judge]:.4f} of its ${judge_cap:.2f} cap; "
+                                     f"next call may cost up to ${bound:.4f}")
             self.reserved += bound
+            self.judge_reserved[judge] += bound
         return bound
 
-    def settle(self, bound: float, charged: float) -> None:
+    def settle(self, bound: float, charged: float, judge: str | None = None) -> None:
         with self._lock:
             self.reserved -= bound
             self.spent += charged
+            if judge is not None:
+                self.judge_reserved[judge] -= bound
+                self.judge_spent[judge] += charged
 
 
 class RateLimiter:
@@ -196,6 +216,8 @@ def call(client: JudgeClient, spec: JudgeSpec, req: JudgeRequest, attempt: int, 
     t0 = time.perf_counter()
     try:
         c = client.complete(req.prompt)
+    except QuotaExhausted:
+        raise
     except Exception as e:
         if _fatal(e):
             raise FatalApiError(f"{type(e).__name__}: {e}"[:1000]) from e
@@ -226,8 +248,9 @@ def run_requests(requests: list[JudgeRequest], clients: Mapping[str, JudgeClient
                  progress_every: int = 0, limiters: Mapping[str, RateLimiter] | None = None) -> dict[str, int]:
     """Make every planned call without an `ok` row (and with attempts left), appending results.
 
-    A setup error or a budget stop halts the run: no further calls start, calls in flight finish and
-    are recorded, then the exception is raised. Nothing is recorded for the call that stopped it.
+    A setup error, a budget stop, or an exhausted provider quota halts the run: no further calls start,
+    calls in flight finish and are recorded, then the exception is raised. Nothing is recorded for the
+    call that stopped it, so a quota refusal does not use up one of its attempts.
     """
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -257,15 +280,15 @@ def run_requests(requests: list[JudgeRequest], clients: Mapping[str, JudgeClient
                     return
                 bound = budget.reserve(req.judge, req.prompt)
                 row = call(clients[req.judge], specs[req.judge], req, tried[req.request_id] + 1, bound, waited)
-            except (FatalApiError, BudgetExceeded) as e:
-                budget.settle(bound, 0.0)
+            except (FatalApiError, BudgetExceeded, QuotaExhausted) as e:
+                budget.settle(bound, 0.0, req.judge)
                 with lock:
                     counts["not_started"] += 1
                     if not stop.is_set():
                         halted.append(e)
                     stop.set()
                 return
-            budget.settle(bound, row["charged_usd"])
+            budget.settle(bound, row["charged_usd"], req.judge)
             with lock:
                 f.write(json.dumps(row, sort_keys=True) + "\n")
                 f.flush()

@@ -58,6 +58,25 @@ class ApiStatusError(RuntimeError):
         self.status_code = status_code
 
 
+class QuotaExhausted(ApiStatusError):
+    """A 429 that retrying within minutes cannot clear: the daily request quota (`kind="daily"`) or
+    the provider project's spending cap (`kind="spend_cap"`)."""
+
+    def __init__(self, kind: str, message: str):
+        super().__init__(429, message)
+        self.kind = kind
+
+
+def quota_exhausted(status_code: int, body: str) -> QuotaExhausted | None:
+    if status_code != 429:
+        return None
+    if "per_day" in body or "PerDay" in body:
+        return QuotaExhausted("daily", body)
+    if "spending cap" in body:
+        return QuotaExhausted("spend_cap", body)
+    return None
+
+
 def load_dotenv(path: str | os.PathLike) -> None:
     """Set variables from a .env file without overriding the environment; values are never printed."""
     if not os.path.exists(path):
@@ -157,6 +176,9 @@ class GeminiJudgeClient:
             else:
                 if r.status_code == 200:
                     return r.json(), attempt, waited
+                exhausted = quota_exhausted(r.status_code, r.text)
+                if exhausted is not None:
+                    raise exhausted
                 error, transient = ApiStatusError(r.status_code, r.text), r.status_code in GEMINI_TRANSIENT
             if not transient or attempt == self.max_retries:
                 error.transient_retries, error.retry_wait_s = attempt, round(waited, 4)  # type: ignore[attr-defined]

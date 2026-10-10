@@ -931,3 +931,51 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
     repeatability.
   - `configs/judges.yaml` stays `status: frozen`, now with judge-config hash `bd2f95a657e2` and
     file SHA-256 `c85c305e7c4c8d768712ef169e73c03af21d8c90e179fa195b720f35064df267`.
+- **2026-10-10, Step 8 reduced Gemini plan (recorded during prompt tuning, before any prompt was
+  selected).**
+  - **Why.** The resumed, throttled run made 80 calls with no retries, then hit two limits:
+    - the key's daily quota of 250 requests for `gemini-3.1-pro` (HTTP 429,
+      `generate_requests_per_model_per_day`);
+    - 43 refusals between 07:16 and 12:03 UTC because the Google project had reached its monthly
+      spending cap, a limit set in AI Studio and separate from this protocol's caps.
+
+    At 250 requests a day, the full plan would take about a month.
+  - **State at this amendment:**
+    - 243 Gemini verdicts, all parsed, covering the first 30 labeled `val_id` answers in
+      answer-ID order for all 8 variant-and-condition cells, plus one cell of the 31st;
+    - 419 Gemini requests have no verdict, each having used one of its five attempts on a quota
+      error;
+    - Gemini spend is $1.00 (smoke test included), and total Step 8 spend is $1.34.
+  - **Decision by the project owner: Gemini's share is capped at $5.00.** It covers all Gemini
+    calls, the smoke test included, and sits inside the $45 Step 8 cap. The plan is reduced:
+    - **Tuning.** All four variants and both conditions on the first 120 labeled `val_id` answers
+      in answer-ID order: 960 calls, of which 243 are done.
+      - Answer IDs are hashes, so this order is unrelated to content and labels.
+      - The subset is fixed by rule and reuses the completed calls; it was not chosen by looking
+        at any result.
+    - **Selection.** The same rule as before (highest hallucinated-class F1, same tie-breaks),
+      applied to Gemini over those 120 answers.
+    - **Repeatability.** The selected prompt runs twice more per condition on the first 40 of the
+      120 answers: 160 calls. These replace the shared 200-answer subset for Gemini only.
+    - **Nemotron is unchanged:** its prompts are selected on all 995 answers and its repeatability
+      uses the 200-answer subset.
+    - **Also reported:** both judges' tuning results on the shared 120-answer subset, in
+      `reports/step8/tuning_shared_subset.csv`, so the two judges can be compared on the same
+      answers.
+    - **Projected Gemini total** at the measured $0.0041 per call: about $4.6. The guard stops
+      Gemini at $5.00 whatever happens.
+  - **Quota handling.**
+    - The per-minute throttle stays at 20 requests per minute.
+    - A 429 marking an exhausted daily quota or a project spending cap is not retried and is not
+      recorded as an attempt. It stops the run.
+    - With `--wait-for-daily-quota`, the run sleeps until 00:05 Pacific time, when the daily quota
+      resets, and then continues. A spending-cap refusal always stops the run for the project
+      owner to resolve.
+    - The 419 quota errors already recorded keep their attempt count.
+  - **Precision cost, disclosed.** Gemini's F1 on 120 answers has much wider uncertainty than
+    Nemotron's on 995. Its prompt selection and repeatability estimates are correspondingly less
+    precise. Gemini's test-split evaluation in Step 9 is not changed by this amendment.
+  - **Unchanged:** models, settings, prompts, inputs, conditions, parsing, scoring, and
+    Nemotron's plan.
+  - `configs/judges.yaml` stays `status: frozen`, now with judge-config hash `62b6cf642e3b` and
+    file SHA-256 `d420aa29d578ba0a3206b2f5fb297534edcb646facb2696190f1e2cd78a31001`.

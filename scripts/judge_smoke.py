@@ -14,7 +14,7 @@ from pathlib import Path
 
 from hdetect.judging.clients import load_dotenv, make_client
 from hdetect.judging.config import load_judge_config
-from hdetect.judging.runner import Budget, JudgeItem, plan, read_rows, run_requests, spent_usd
+from hdetect.judging.runner import Budget, JudgeItem, plan, read_rows, run_requests
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -68,8 +68,8 @@ def main() -> None:
     spec = cfg.judges[args.judge]
     out_dir = ROOT / cfg.paths["outputs"]
     out = out_dir / "smoke.jsonl"
-    spent = spent_usd(r for f in sorted(out_dir.glob("**/*.jsonl")) for r in read_rows(f))
-    budget = Budget(cfg.cap_usd, cfg.judges, spent)
+    budget = Budget.from_rows(cfg.cap_usd, cfg.judges, (r for f in sorted(out_dir.glob("**/*.jsonl"))
+                                                       for r in read_rows(f)))
     reqs = plan([SYNTHETIC], spec, [SMOKE_VARIANT], [SMOKE_CONDITION], run=0)
     counts = run_requests(reqs, {spec.name: make_client(spec, cfg)}, cfg.judges, out, budget,
                           max_attempts=1)

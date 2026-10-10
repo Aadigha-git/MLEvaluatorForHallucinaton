@@ -34,6 +34,12 @@ class JudgeSpec:
     thinking_level: str | None = None
     max_prompt_tokens_at_price: int | None = None
     max_requests_per_minute: float | None = None
+    # Reduced plan for one judge: its own spend cap (inside the global cap), tuning on the first
+    # `tune_first_n` labeled val_id answers in answer-ID order, and repeat runs on the first
+    # `repeat_first_n` of those instead of the shared repeat subset.
+    cap_usd: float | None = None
+    tune_first_n: int | None = None
+    repeat_first_n: int | None = None
 
     def cost_usd(self, input_tokens: int, output_tokens: int) -> float:
         return (input_tokens * self.usd_per_million_input_tokens
@@ -110,6 +116,12 @@ def _validate(cfg: JudgeConfig, raw: dict[str, Any]) -> None:
             raise ConfigError(f"{j.name}: max_output_tokens and prices must be positive")
         if j.max_requests_per_minute is not None and j.max_requests_per_minute <= 0:
             raise ConfigError(f"{j.name}: max_requests_per_minute must be positive")
+        if j.cap_usd is not None and not 0 < j.cap_usd <= cfg.cap_usd:
+            raise ConfigError(f"{j.name}: a judge's cap must be positive and within the global cap")
+        if (j.tune_first_n is None) != (j.repeat_first_n is None):
+            raise ConfigError(f"{j.name}: a reduced plan sets both tune_first_n and repeat_first_n")
+        if j.tune_first_n is not None and not 0 < j.repeat_first_n <= j.tune_first_n:
+            raise ConfigError(f"{j.name}: repeat_first_n must be positive and at most tune_first_n")
     small, frontier = cfg.judges["small"], cfg.judges["frontier"]
     if small.temperature != 0:
         raise ConfigError("the small judge runs at temperature 0")
