@@ -1,0 +1,5 @@
+check,ok
+generation files match manifest,True
+no cluster spans two splits,True
+"feature rows align with manifest questions, labels, and raw-answer hashes",True
+train and val_id share no cluster,True

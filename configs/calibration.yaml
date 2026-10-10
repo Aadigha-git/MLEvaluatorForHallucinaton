@@ -1,0 +1,17 @@
+# Step 7: calibration and the decision policy on val_id. Values are frozen in
+# docs/PREREGISTRATION.md ("Fitting and selection", Calibration; "Decision policy").
+
+calibration:
+  methods: [platt, isotonic]
+  ece_bins: 10
+  n_splits: 5            # cross-fitting within val_id, grouped by cluster_id
+  platt_margin: 0.005    # isotonic must beat Platt by at least this much mean ECE
+
+policy:
+  accept_max_hallucinated: 0.05
+  escalate_max_share: 0.20
+
+paths:
+  step6_reports: reports/step6
+  reports: reports/step7
+  models: data/models/step7

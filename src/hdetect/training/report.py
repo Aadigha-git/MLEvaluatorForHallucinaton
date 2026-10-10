@@ -18,12 +18,119 @@ def _fmt(v: Any) -> str:
 
 
 def md_table(df: pd.DataFrame, cols: Sequence[str], headers: Sequence[str] | None = None) -> str:
-    cols = [c for c in cols if c in df.columns]
-    headers = headers or cols
+    pairs = [(c, h) for c, h in zip(cols, headers or cols) if c in df.columns]
+    cols, headers = [c for c, _ in pairs], [h for _, h in pairs]
     lines = ["| " + " | ".join(headers) + " |", "|" + "---|" * len(cols)]
     for r in df[list(cols)].itertuples(index=False):
         lines.append("| " + " | ".join(_fmt(v) for v in r) + " |")
     return "\n".join(lines)
+
+
+# Splits each table's rows draw on: "all" rows use both, "per_row" tables name the split in a column,
+# and validation_summary rows use train only through a fitted classifier.
+_ALL_ROWS = {
+    "cv_results": ("train",), "selected_hyperparameters": ("train",), "ablation_forward_candidates": ("train",),
+    "family_selection": ("train", "val_id"), "validation_per_seed": ("train", "val_id"),
+    "ablation_forward": ("train", "val_id"), "ablation_leave_one_feature_out": ("train", "val_id"),
+    "ablation_leave_one_group_out": ("train", "val_id"), "permutation_importance": ("train", "val_id"),
+    "importance_stability": ("train", "val_id"), "single_features": ("val_id",),
+}
+_PER_ROW = ("correlations", "vif", "feature_distributions", "missingness")
+FLAG_COLUMN = "flagged_label_splits"
+
+
+def flagged_splits(labels_summary: pd.DataFrame) -> set[str]:
+    if "flagged_over_5pct" not in labels_summary:
+        return set()
+    flags = labels_summary["flagged_over_5pct"].astype(str).str.lower().isin(("true", "1", "yes"))
+    return set(labels_summary.loc[flags, "split"])
+
+
+def _validation_summary_splits(df: pd.DataFrame) -> list[tuple[str, ...]]:
+    def uses(evaluator: str) -> tuple[str, ...]:
+        parts = evaluator.split(" - ")
+        fitted = any(not p.startswith("feature:") and p != "all_hallucinated" for p in parts)
+        return ("train", "val_id") if fitted else ("val_id",)
+    return [uses(e) for e in df["evaluator"]]
+
+
+def _logo_twins(df: pd.DataFrame) -> list[str]:
+    """For tiers with exactly two feature groups, "-A" and "only:B" fit the same features."""
+    from hdetect.training import present_groups, tier_features
+
+    def feats(r) -> frozenset[str]:
+        all_f = tier_features(r["tier"], r["train_condition"])
+        groups = present_groups(all_f)
+        name = r["subset"]
+        if name.startswith("-"):
+            return frozenset(all_f) - frozenset(groups[name[1:]])
+        if name.startswith("only:"):
+            return frozenset(groups[name[5:]])
+        return frozenset(all_f)
+
+    sets = [feats(r) for r in df.to_dict("records")]
+    keys = list(zip(df["tier"], df["train_condition"], df["eval_condition"]))
+    out = []
+    for i, (k, s) in enumerate(zip(keys, sets)):
+        twins = [df["subset"].iloc[j] for j, (k2, s2) in enumerate(zip(keys, sets)) if j != i and k2 == k and s2 == s]
+        out.append(", ".join(twins))
+    return out
+
+
+_COUNTS = ("f1_degenerate_replicates", "f1_skipped_replicates", "auroc_skipped_replicates", "auprc_skipped_replicates")
+
+
+def _backfill_diff_counts(vs: pd.DataFrame) -> pd.DataFrame:
+    """Difference rows from tables written before the bootstrap counted them: a difference replicate is
+    degenerate or skipped only if one of its two evaluators is, so two zero counts give exactly zero.
+    Anything else stays missing rather than guessed."""
+    vs = vs.copy()
+    for col in _COUNTS:
+        if col not in vs:
+            vs[col] = np.nan
+    for i, r in vs[vs["evaluator"].str.contains(" - ")].iterrows():
+        a, b = r["evaluator"].split(" - ")
+        same = (vs["tier"] == r["tier"]) & (vs["eval_condition"] == r["eval_condition"])
+        for col in _COUNTS:
+            if pd.isna(r[col]):
+                comp = vs.loc[same & vs["evaluator"].isin((a, b)), col]
+                if len(comp) == 2 and (comp == 0).all():
+                    vs.loc[i, col] = 0
+    return vs
+
+
+def annotate_tables(tables: Mapping[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+    """Mark every result row that rests on a split with more than 5% of answers excluded, and mark
+    leave-one-group-out rows that fit the same features as another row."""
+    flagged = flagged_splits(tables["labels_summary"])
+    out = dict(tables)
+    for name, df in tables.items():
+        if name in _ALL_ROWS:
+            uses = [_ALL_ROWS[name]] * len(df)
+        elif name in _PER_ROW:
+            uses = [(s,) for s in df["split"]]
+        elif name == "validation_summary":
+            uses = _validation_summary_splits(df)
+        else:
+            continue
+        df = df.copy()
+        df[FLAG_COLUMN] = [", ".join(s for s in u if s in flagged) for u in uses]
+        out[name] = df
+    out["validation_summary"] = _backfill_diff_counts(out["validation_summary"])
+    logo = out["ablation_leave_one_group_out"].copy()
+    logo["same_features_as"] = _logo_twins(logo)
+    out["ablation_leave_one_group_out"] = logo
+    return out
+
+
+def _flag_note(t: Mapping[str, pd.DataFrame], what: str) -> list[str]:
+    ls = t["labels_summary"]
+    flagged = sorted(flagged_splits(ls))
+    if not flagged:
+        return []
+    rates = ", ".join(f"`{s}` {float(ls.loc[ls['split'] == s, 'exclusion_rate'].iloc[0]):.1%}" for s in flagged)
+    return [f"> **Exclusion flag.** {what} rest on {', '.join(f'`{s}`' for s in flagged)}, which has more than 5% of its "
+            f"answers excluded as undecidable ({rates}); rows are marked in `{FLAG_COLUMN}`.", ""]
 
 
 def _ci(row, m: str) -> str:
@@ -55,6 +162,7 @@ def write_readme(tables: Mapping[str, pd.DataFrame], notes: Mapping[str, Any], t
         "",
         "## Selected models",
         "",
+        *_flag_note(t, "Hyperparameters, family choice, and every classifier result in this report"),
         f"Seeds {', '.join(map(str, tcfg['seeds']))}. Hyperparameters by 5-fold StratifiedGroupKFold on `train` (grouped by",
         "`cluster_id`, average precision); the family by mean `val_id` F1 over seeds, per tier and evidence condition.",
         "The gold-evidence rows reuse the retrieved-evidence classifier.",
@@ -68,7 +176,10 @@ def write_readme(tables: Mapping[str, pd.DataFrame], notes: Mapping[str, Any], t
         "Point estimates are means over the three seeds; brackets are 95% paired cluster-bootstrap intervals",
         f"({tcfg['bootstrap']['replicates']:,} replicates over `val_id` clusters, thresholds held fixed, seed-averaged",
         "within each replicate). The difference row is the selected classifier minus the best single feature.",
+        "Degenerate replicates (pre-registered: F1 is 0 with no true positives, false positives, or false negatives;",
+        "AUROC and AUPRC are skipped for one-class replicates) are counted for every interval.",
         "",
+        *_flag_note(t, "Classifier rows and difference rows (single-feature and all-hallucinated rows use `val_id` only)"),
     ]
     vs = t["validation_summary"].copy()
     keep = vs["selected_family"].fillna(False).astype(bool) | vs["best_single_feature"].fillna(False).astype(bool) \
@@ -82,7 +193,18 @@ def write_readme(tables: Mapping[str, pd.DataFrame], notes: Mapping[str, Any], t
                          "AUPRC": f"{r['auprc']:+.3f} [{r['auprc_diff_ci_low']:+.3f}, {r['auprc_diff_ci_high']:+.3f}]"})
         else:
             rows.append({**r, "F1": _ci(r, "f1"), "AUROC": _ci(r, "auroc"), "AUPRC": _ci(r, "auprc")})
-    out += [md_table(pd.DataFrame(rows), ["tier", "eval_condition", "evaluator", "n_val", "F1", "AUROC", "AUPRC"]), ""]
+    out += [md_table(pd.DataFrame(rows), ["tier", "eval_condition", "evaluator", "n_val", "F1", "AUROC", "AUPRC",
+                                          "f1_degenerate_replicates", "auroc_skipped_replicates",
+                                          "auprc_skipped_replicates", FLAG_COLUMN],
+                     ["tier", "eval_condition", "evaluator", "n_val", "F1", "AUROC", "AUPRC", "F1 degenerate",
+                      "AUROC skipped", "AUPRC skipped", "flagged splits"]), ""]
+    diffs = vs[vs["evaluator"].str.contains(" - ")]
+    if len(diffs) and "f1_diff_ci_low" in diffs:
+        wins = int((diffs["f1_diff_ci_low"] > 0).sum())
+        out += [f"Selected classifiers beating the best single feature on `val_id` (lower bound of the F1 difference",
+                f"interval above 0): {wins} of {len(diffs)} tier and evidence-condition rows. The paired comparison with",
+                "predicting every answer hallucinated is in `reports/step7/baseline_check.csv`. These are validation",
+                "results, not research-question verdicts.", ""]
 
     vps = t["validation_per_seed"].sort_values(["tier", "eval_condition", "family", "seed"], kind="stable")
     out += ["Per-seed validation metrics (both families):", "",
@@ -101,6 +223,7 @@ def write_readme(tables: Mapping[str, pd.DataFrame], notes: Mapping[str, Any], t
             "cross-validated hyperparameters per seed on `train`; values are means over seeds on `val_id`. Forward",
             "selection adds, at each step, the feature with the highest mean `train` CV average precision; `val_id` never",
             "chooses the order.", "",
+            *_flag_note(t, "All ablation results"),
             "### Add one feature at a time from the bare baseline", "",
             md_table(fwd, ["tier", "train_condition", "eval_condition", "step", "added", "cv_ap_mean_mean", "f1_mean",
                            "auroc_mean", "auprc_mean"]), ""]
@@ -111,9 +234,12 @@ def write_readme(tables: Mapping[str, pd.DataFrame], notes: Mapping[str, Any], t
                                                     "delta_auprc_mean"]), ""]
     logo = t["ablation_leave_one_group_out"]
     out += ["### Leave one group out, and each group alone (change from all features)", "",
+            "Where a tier and condition has only two feature groups (the single-shot tier, and the resampling tier",
+            "without evidence), dropping one group leaves exactly the other, so \"-A\" and \"only:B\" fit the same",
+            "features and their rows are identical by construction. `same_features_as` names the twin row.", "",
             md_table(logo[logo["subset"] != "all"], ["tier", "train_condition", "eval_condition", "subset",
                                                     "delta_cv_ap_mean_mean", "delta_f1_mean", "delta_auroc_mean",
-                                                    "delta_auprc_mean"]), ""]
+                                                    "delta_auprc_mean", "same_features_as"]), ""]
 
     st = t["importance_stability"]
     pairs = st[st["seed_a"].notna()] if "seed_a" in st else st.iloc[0:0]
@@ -121,6 +247,7 @@ def write_readme(tables: Mapping[str, pd.DataFrame], notes: Mapping[str, Any], t
     out += ["## Permutation importance and stability across seeds", "",
             f"Drop in `val_id` average precision when a feature is permuted ({tcfg['permutation_importance']['n_repeats']}",
             "repeats), for each seed's selected classifier.", "",
+            *_flag_note(t, "All importance results"),
             md_table(feats, ["tier", "eval_condition", "feature", "importance_mean_over_seeds", "importance_sd_over_seeds",
                              "rank_min", "rank_max"]), "",
             md_table(pairs.groupby(["tier", "eval_condition"], sort=False)[["spearman_rho", "top3_jaccard"]].agg(["min", "mean"])
@@ -132,6 +259,7 @@ def write_readme(tables: Mapping[str, pd.DataFrame], notes: Mapping[str, Any], t
     strong = corr[(corr["method"] == "spearman") & (corr["r"].abs() >= 0.7)]
     vif = t["vif"]
     out += ["## Redundancy", "",
+            *_flag_note(t, "Rows for `train` here and in the missingness and `sc_entail` tables below"),
             "Feature pairs with |Spearman r| >= 0.7 (full matrices in `correlations.csv`):", "",
             md_table(strong, ["split", "condition", "feature_a", "feature_b", "r"]) if len(strong) else "None.", "",
             "VIF >= 5 (all values in `vif.csv`):", "",

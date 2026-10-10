@@ -1,0 +1,31 @@
+stage,seconds,kind,median_ms,p95_ms,n
+cv single_shot/retrieved,1.688,stage,,,
+refit single_shot/retrieved,0.082,stage,,,
+cv single_shot/none,0.596,stage,,,
+refit single_shot/none,0.053,stage,,,
+cv resampling/retrieved,0.71,stage,,,
+refit resampling/retrieved,0.069,stage,,,
+cv resampling/none,0.659,stage,,,
+refit resampling/none,0.077,stage,,,
+selection,3.953,stage,,,
+single features,0.046,stage,,,
+bootstrap single_shot/retrieved,1.503,stage,,,
+bootstrap single_shot/none,1.09,stage,,,
+bootstrap single_shot/gold,1.491,stage,,,
+bootstrap resampling/retrieved,1.796,stage,,,
+bootstrap resampling/none,1.427,stage,,,
+bootstrap resampling/gold,1.793,stage,,,
+validation summary,9.182,stage,,,
+ablations single_shot/retrieved,27.283,stage,,,
+ablations single_shot/none,2.607,stage,,,
+ablations resampling/retrieved,8.74,stage,,,
+ablations resampling/none,4.872,stage,,,
+ablations,43.507,stage,,,
+permutation importance,3.344,stage,,,
+redundancy,0.008,stage,,,
+distributions,0.033,stage,,,
+single_shot/retrieved/hist_gradient_boosting/seed20261008,,classifier_latency_ms,0.208229,0.220501,200.0
+single_shot/none/logistic_regression/seed20261008,,classifier_latency_ms,0.068125,0.072989,200.0
+resampling/retrieved/logistic_regression/seed20261008,,classifier_latency_ms,0.068541,0.077606,200.0
+resampling/none/logistic_regression/seed20261008,,classifier_latency_ms,0.067917,0.075686,200.0
+macOS-26.6.2-arm64-arm-64bit arm64 cpus=10 memory_gb=17.2 sklearn=1.9.1 n_jobs=8,,hardware,,,

@@ -1,0 +1,14 @@
+path,test_split
+data/audit/unresolved_dev_v2_blind.csv,False
+data/features/report.train-val_id.full.json,False
+data/features/tables/gold/val_id.parquet,False
+data/features/tables/none/train.parquet,False
+data/features/tables/none/val_id.parquet,False
+data/features/tables/retrieved/train.parquet,False
+data/features/tables/retrieved/val_id.parquet,False
+data/generations/train.jsonl,False
+data/generations/val_id.jsonl,False
+data/labels/v2/auto/train.jsonl,False
+data/labels/v2/auto/val_id.jsonl,False
+data/manifests/generations.json,False
+data/splits/split_manifest.jsonl,False

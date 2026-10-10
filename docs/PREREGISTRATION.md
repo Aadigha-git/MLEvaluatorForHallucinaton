@@ -659,3 +659,58 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
     answers would leave almost no hallucinated cases, and the analysis would mostly measure the
     change in class balance. Counts come from the `val_id` label file only; `test_id` was not
     inspected.
+- **2026-10-09, Step 7 implementation details (no change to selection, thresholds, or the research
+  questions).** These are choices that "Calibration" and "Decision policy" above leave open. The
+  project owner recorded them after Step 7 was implemented and run on `train` and `val_id` only,
+  and before any test split was scored. Selected families, hyperparameters, and F1 thresholds are
+  the Step 6 ones: each classifier is refitted deterministically from its Step 6 family,
+  hyperparameters, and seed, and the run stops unless the refit reproduces its Step 6 threshold.
+  - **Calibrators.** scikit-learn's `CalibratedClassifierCV` wrapped around the frozen classifier
+    (`FrozenEstimator`), so the classifier is never refitted:
+    - `method="sigmoid"` for Platt scaling, fitted on the classifier's decision function (the
+      logit), not on its predicted probability;
+    - `method="isotonic"` for isotonic regression, which is unaffected by that choice because it
+      is invariant to monotone transforms.
+  - **Calibration folds.** `StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed)` on
+    `val_id`, grouped by `cluster_id`, with the seed of the classifier being calibrated. ECE uses 10
+    equal-width bins, with P = 1 in the top bin.
+  - **Denominators.**
+    - Calibration, ECE, policy thresholds, and every achieved rate use the 995 labeled `val_id`
+      answers.
+    - The 5 `val_id` answers the hand labeler marked undecidable (0.5%, below the 5% flag) have
+      features but no label, so they are excluded from every rate and every denominator.
+    - The accept and escalate goals are compared as exact fractions: at most 5% of accepted
+      answers hallucinated, and at most 20% of the 995 answers escalated.
+  - **Infeasible accept band.** When no t_low meets the 5% goal, t_low is set to the lowest
+    calibrated value, so the accept band is empty. The escalate and flag split is still computed for
+    diagnostic purposes, and the policy is marked infeasible. Its constraints are not claimed to be
+    met.
+  - **Seeds.** No single deployment seed is selected. All three seeds keep their own calibrator and
+    policy, and both are evaluated with seed-level variation reported.
+  - **Gold evidence.** No calibration or operating-point policy is defined for the gold-evidence
+    condition. It stays exploratory and uses the uncalibrated scores and F1 thresholds only.
+  - **Explanation generator** (docs/SPEC.md, build step 7). Deferred until a separate
+    specification is written and recorded here; nothing in the research questions depends on it.
+  - **Artifacts.**
+    - One file per tier, evidence condition, and seed under `data/models/step7/` (git-ignored), each
+      holding the classifier and its scaler, the feature order, seed, F1 threshold, calibrator, and
+      policy thresholds.
+    - `manifest.json` records their SHA-256 hashes, library versions, input and config hashes, and
+      the git commit. Artifacts are stamped from a clean commit by rerunning
+      `scripts/calibrate.py`, which is deterministic.
+    - The test splits will be scored with these frozen artifacts.
+  - **Validation-only diagnostics** (reported in `reports/step7/`, and not a research-question
+    verdict):
+    - none of the four selected classifiers beats predicting every answer hallucinated on `val_id`
+      (the lower bound of the paired 95% F1 difference interval is not above 0), and none beats the
+      best single feature;
+    - every policy is infeasible or nearly degenerate: at most 3 of 995 answers accepted, and flag
+      precision equal to the `val_id` prevalence.
+
+    These findings change nothing in the protocol. RQ1 and RQ2 are judged only on the test splits,
+    as pre-registered.
+  - **Reporting fixes in `reports/step6/`** (no number changed):
+    - every result that uses `train` (9.2% of answers excluded) is marked;
+    - degenerate and skipped bootstrap replicate counts are given for every interval, including
+      differences;
+    - identical rows in the two-group leave-one-group-out ablations are labeled as such.

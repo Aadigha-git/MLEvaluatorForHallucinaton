@@ -1,0 +1,13 @@
+tier,condition,family,seed,method,accept_goal_max_hallucinated,escalate_goal_max_share,t_low,t_high,feasible,n,n_distinct,accept_rate,accept_hallucinated_share,escalate_rate,flag_rate,flag_hallucinated_share,plateau_share_t_low,plateau_share_t_high,flagged_label_splits
+single_shot,retrieved,hist_gradient_boosting,20261008,isotonic,0.05,0.2,0.645833,0.651113,True,995,4,0.003015,0.0,0.048241,0.948744,0.651483,0.048241,0.947739,train
+single_shot,retrieved,hist_gradient_boosting,20261009,isotonic,0.05,0.2,0.645833,0.651113,True,995,4,0.003015,0.0,0.048241,0.948744,0.651483,0.048241,0.947739,train
+single_shot,retrieved,hist_gradient_boosting,20261010,isotonic,0.05,0.2,0.538462,0.653975,False,995,5,0.0,,0.101508,0.898492,0.654362,0.013065,0.897487,train
+single_shot,none,logistic_regression,20261008,platt,0.05,0.2,0.588406,0.635235,False,995,780,0.0,,0.198995,0.801005,0.656211,0.001005,0.00201,train
+single_shot,none,logistic_regression,20261009,platt,0.05,0.2,0.586796,0.635092,False,995,780,0.0,,0.2,0.8,0.655779,0.001005,0.001005,train
+single_shot,none,logistic_regression,20261010,platt,0.05,0.2,0.588406,0.635235,False,995,780,0.0,,0.198995,0.801005,0.656211,0.001005,0.00201,train
+resampling,retrieved,logistic_regression,20261008,platt,0.05,0.2,0.566204,0.624798,True,995,995,0.001005,0.0,0.2,0.798995,0.661635,0.001005,0.001005,train
+resampling,retrieved,logistic_regression,20261009,platt,0.05,0.2,0.590888,0.63165,True,995,995,0.001005,0.0,0.2,0.798995,0.661635,0.001005,0.001005,train
+resampling,retrieved,logistic_regression,20261010,platt,0.05,0.2,0.566204,0.624798,True,995,995,0.001005,0.0,0.2,0.798995,0.661635,0.001005,0.001005,train
+resampling,none,logistic_regression,20261008,isotonic,0.05,0.2,0.375,0.603053,False,995,9,0.0,,0.051256,0.948744,0.661017,0.00804,0.526633,train
+resampling,none,logistic_regression,20261009,isotonic,0.05,0.2,0.375,0.603516,False,995,12,0.0,,0.059296,0.940704,0.661325,0.00804,0.514573,train
+resampling,none,logistic_regression,20261010,isotonic,0.05,0.2,0.375,0.603053,False,995,9,0.0,,0.051256,0.948744,0.661017,0.00804,0.526633,train

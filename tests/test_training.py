@@ -95,7 +95,8 @@ def test_training_loaders_refuse_test_splits(split, tmp_path):
         read_auto(tmp_path, split)
 
 
-TRAINING_SOURCES = sorted((ROOT / "src" / "hdetect" / "training").glob("*.py")) + [ROOT / "scripts" / "train_classifiers.py"]
+TRAINING_SOURCES = sorted((ROOT / "src" / "hdetect" / "training").glob("*.py")) + [
+    ROOT / "scripts" / "train_classifiers.py", ROOT / "scripts" / "calibrate.py"]
 
 
 @pytest.mark.parametrize("path", TRAINING_SOURCES, ids=lambda p: p.name)

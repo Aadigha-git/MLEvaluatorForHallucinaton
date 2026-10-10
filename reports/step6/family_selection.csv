@@ -1,0 +1,9 @@
+tier,condition,family,mean_val_f1_over_seeds,selected,flagged_label_splits
+single_shot,retrieved,logistic_regression,0.787325,False,train
+single_shot,retrieved,hist_gradient_boosting,0.788286,True,train
+single_shot,none,logistic_regression,0.787325,True,train
+single_shot,none,hist_gradient_boosting,0.787325,False,train
+resampling,retrieved,logistic_regression,0.787805,True,train
+resampling,retrieved,hist_gradient_boosting,0.787325,False,train
+resampling,none,logistic_regression,0.787508,True,train
+resampling,none,hist_gradient_boosting,0.787325,False,train

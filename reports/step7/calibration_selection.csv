@@ -1,0 +1,5 @@
+tier,condition,family,ece_platt,ece_isotonic,ece_platt_seed_min,ece_platt_seed_max,ece_isotonic_seed_min,ece_isotonic_seed_max,platt_minus_isotonic,chosen_method,flagged_label_splits
+single_shot,retrieved,hist_gradient_boosting,0.064217,0.011428,0.059401,0.071625,0.005859,0.016065,0.052789,isotonic,train
+single_shot,none,logistic_regression,0.009118,0.012277,0.005234,0.011255,0.00785,0.01533,-0.003158,platt,train
+resampling,retrieved,logistic_regression,0.021404,0.018277,0.015602,0.025349,0.015033,0.023047,0.003126,platt,train
+resampling,none,logistic_regression,0.048775,0.042217,0.043832,0.05542,0.030828,0.057562,0.006558,isotonic,train

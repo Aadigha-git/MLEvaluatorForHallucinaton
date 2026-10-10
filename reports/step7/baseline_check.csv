@@ -1,0 +1,5 @@
+tier,condition,family,n_val,f1_classifier,f1_all_hallucinated,f1_diff_vs_all_hallucinated,f1_diff_ci_low,f1_diff_ci_high,f1_degenerate_replicates,beats_all_hallucinated_on_val,best_single_feature,f1_diff_vs_best_single,f1_diff_vs_best_single_ci_low,f1_diff_vs_best_single_ci_high,beats_best_single_on_val,flagged_label_splits
+single_shot,retrieved,hist_gradient_boosting,995,0.788286,0.787325,0.000958,0.0,0.002241,0,False,feature:lex_overlap_max,-0.017745,-0.03398,-0.001686,False,train
+single_shot,none,logistic_regression,995,0.787325,0.787325,-0.0,-0.0,0.0,0,False,feature:log_length,-0.003287,-0.008442,0.001976,False,train
+resampling,retrieved,logistic_regression,995,0.787805,0.787325,0.000478,-0.0,0.00145,0,False,feature:lex_overlap_max,-0.018227,-0.034405,-0.002248,False,train
+resampling,none,logistic_regression,995,0.787508,0.787325,0.000164,-0.003144,0.003339,0,False,feature:log_length,-0.003104,-0.009277,0.003024,False,train

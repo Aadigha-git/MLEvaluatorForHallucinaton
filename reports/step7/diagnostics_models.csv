@@ -1,0 +1,13 @@
+tier,condition,family,seed,classes,train_prevalence,val_prevalence,train_out_of_fold_auroc,val_auroc,val_predicted_hallucinated_share,threshold_is_lowest_val_score,train_mean_score,val_mean_score,flagged_label_splits
+single_shot,retrieved,hist_gradient_boosting,20261008,"0,1",0.375479,0.649246,0.660777,0.357694,0.996985,False,0.375556,0.532655,train
+single_shot,retrieved,hist_gradient_boosting,20261009,"0,1",0.375479,0.649246,0.65785,0.357694,0.996985,False,0.375556,0.532655,train
+single_shot,retrieved,hist_gradient_boosting,20261010,"0,1",0.375479,0.649246,0.659619,0.368428,1.0,True,0.375586,0.515893,train
+single_shot,none,logistic_regression,20261008,"0,1",0.375479,0.649246,0.649884,0.477233,1.0,True,0.494441,0.592206,train
+single_shot,none,logistic_regression,20261009,"0,1",0.375479,0.649246,0.643554,0.477024,1.0,True,0.375486,0.467559,train
+single_shot,none,logistic_regression,20261010,"0,1",0.375479,0.649246,0.647497,0.477233,1.0,True,0.494441,0.592206,train
+resampling,retrieved,logistic_regression,20261008,"0,1",0.375479,0.649246,0.622934,0.457654,0.998995,False,0.37548,0.496705,train
+resampling,retrieved,logistic_regression,20261009,"0,1",0.375479,0.649246,0.61356,0.467714,0.998995,False,0.493748,0.617557,train
+resampling,retrieved,logistic_regression,20261010,"0,1",0.375479,0.649246,0.605922,0.457654,0.998995,False,0.37548,0.496705,train
+resampling,none,logistic_regression,20261008,"0,1",0.375479,0.649246,0.640369,0.576446,0.99196,False,0.494197,0.605901,train
+resampling,none,logistic_regression,20261009,"0,1",0.375479,0.649246,0.633013,0.57865,0.99196,False,0.375496,0.482231,train
+resampling,none,logistic_regression,20261010,"0,1",0.375479,0.649246,0.626894,0.576446,0.99196,False,0.494197,0.605901,train

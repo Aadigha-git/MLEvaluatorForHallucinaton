@@ -1,0 +1,13 @@
+tier,condition,family,seed,config,step6_threshold,refit_threshold,step6_f1,refit_f1,reproduced,flagged_label_splits
+single_shot,retrieved,hist_gradient_boosting,20261008,"max_depth=2,learning_rate=0.05,max_iter=100",0.201085,0.201085,0.788767,0.788767,True,train
+single_shot,retrieved,hist_gradient_boosting,20261009,"max_depth=2,learning_rate=0.05,max_iter=100",0.201085,0.201085,0.788767,0.788767,True,train
+single_shot,retrieved,hist_gradient_boosting,20261010,"max_depth=3,learning_rate=0.05,max_iter=100",0.104301,0.104301,0.787325,0.787325,True,train
+single_shot,none,logistic_regression,20261008,"C=0.01,class_weight=balanced",0.375356,0.375356,0.787325,0.787325,True,train
+single_shot,none,logistic_regression,20261009,"C=0.01,class_weight=None",0.269289,0.269289,0.787325,0.787325,True,train
+single_shot,none,logistic_regression,20261010,"C=0.01,class_weight=balanced",0.375356,0.375356,0.787325,0.787325,True,train
+resampling,retrieved,logistic_regression,20261008,"C=0.01,class_weight=None",0.272727,0.272727,0.787805,0.787805,True,train
+resampling,retrieved,logistic_regression,20261009,"C=0.01,class_weight=balanced",0.378097,0.378097,0.787805,0.787805,True,train
+resampling,retrieved,logistic_regression,20261010,"C=0.01,class_weight=None",0.272727,0.272727,0.787805,0.787805,True,train
+resampling,none,logistic_regression,20261008,"C=0.01,class_weight=balanced",0.406321,0.406321,0.787508,0.787508,True,train
+resampling,none,logistic_regression,20261009,"C=0.01,class_weight=None",0.294698,0.294698,0.787508,0.787508,True,train
+resampling,none,logistic_regression,20261010,"C=0.01,class_weight=balanced",0.406321,0.406321,0.787508,0.787508,True,train

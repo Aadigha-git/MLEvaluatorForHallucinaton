@@ -150,7 +150,7 @@ def bootstrap(
     y = np.asarray(y, dtype=int)
     stats: dict[str, dict[str, list[np.ndarray]]] = {e.name: {"f1": [], "auroc": [], "auprc": []} for e in evaluators}
     stats["all_hallucinated"] = {"f1": []}
-    degenerate = {e.name: 0 for e in evaluators}
+    degenerate: dict[str, list[np.ndarray]] = {e.name: [] for e in evaluators}
     rng_seed = seed
     done = 0
     while done < replicates:
@@ -171,26 +171,30 @@ def bootstrap(
             stats[e.name]["f1"].append(np.mean(f1s, axis=0))
             stats[e.name]["auroc"].append(np.mean(aurocs, axis=0))
             stats[e.name]["auprc"].append(np.mean(aps, axis=0))
-            degenerate[e.name] += int(deg.sum())
+            degenerate[e.name].append(deg)
         done += n
 
     out: dict[str, dict[str, float]] = {}
     joined = {name: {m: np.concatenate(v) for m, v in ms.items()} for name, ms in stats.items()}
+    deg_all = {name: np.concatenate(v) for name, v in degenerate.items()}
     for name, ms in joined.items():
         row: dict[str, float] = {}
         for m, values in ms.items():
             ok = values[~np.isnan(values)]
             row[f"{m}_ci_low"], row[f"{m}_ci_high"] = (np.percentile(ok, [2.5, 97.5]) if len(ok) else (np.nan, np.nan))
             row[f"{m}_skipped_replicates"] = int(np.isnan(values).sum())
-        row["f1_degenerate_replicates"] = degenerate.get(name, 0)
+        row["f1_degenerate_replicates"] = int(deg_all[name].sum()) if name in deg_all else 0
         out[name] = row
     for a, b in pairs:
+        diff = out.setdefault(f"{a} - {b}", {})
         for m in ("f1", "auroc", "auprc"):
             if m not in joined[a] or m not in joined[b]:
                 continue
             d = joined[a][m] - joined[b][m]
             ok = d[~np.isnan(d)]
             lo, hi = np.percentile(ok, [2.5, 97.5])
-            out.setdefault(f"{a} - {b}", {})
-            out[f"{a} - {b}"].update({f"{m}_diff_ci_low": lo, f"{m}_diff_ci_high": hi, f"{m}_diff_mean": float(ok.mean())})
+            diff.update({f"{m}_diff_ci_low": lo, f"{m}_diff_ci_high": hi, f"{m}_diff_mean": float(ok.mean()),
+                         f"{m}_skipped_replicates": int(np.isnan(d).sum())})
+        diff["f1_degenerate_replicates"] = int((deg_all.get(a, 0) | deg_all.get(b, 0)).sum()) \
+            if a in deg_all or b in deg_all else 0
     return out
