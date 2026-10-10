@@ -15,7 +15,7 @@ import os
 import random
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Protocol
 
 import httpx
@@ -38,6 +38,10 @@ class JudgeCompletion:
     input_tokens: int | None
     output_tokens: int | None
     thinking_tokens: int | None
+    # Transient errors retried inside this call and the backoff slept for them. None when the client
+    # cannot observe its retries (the `openai` package retries internally).
+    transient_retries: int | None = None
+    retry_wait_s: float | None = None
 
 
 class JudgeClient(Protocol):
@@ -139,28 +143,32 @@ class GeminiJudgeClient:
             },
         }
 
-    def _post(self, body: dict[str, Any]) -> dict[str, Any]:
+    def _post(self, body: dict[str, Any]) -> tuple[dict[str, Any], int, float]:
+        """Returns the response, the number of transient retries, and the backoff slept. An error raised
+        after retrying carries the same two counts as `transient_retries` and `retry_wait_s`."""
         path = f"models/{self.spec.model_id}:generateContent"
+        waited = 0.0
         for attempt in range(self.max_retries + 1):
+            error: Exception
             try:
                 r = self._http.post(path, json=body)
             except httpx.TransportError as e:
-                if attempt == self.max_retries:
-                    raise
-                error: Exception = e
+                error, transient = e, True
             else:
                 if r.status_code == 200:
-                    return r.json()
-                if r.status_code not in GEMINI_TRANSIENT or attempt == self.max_retries:
-                    raise ApiStatusError(r.status_code, r.text)
-                error = ApiStatusError(r.status_code, r.text)
+                    return r.json(), attempt, waited
+                error, transient = ApiStatusError(r.status_code, r.text), r.status_code in GEMINI_TRANSIENT
+            if not transient or attempt == self.max_retries:
+                error.transient_retries, error.retry_wait_s = attempt, round(waited, 4)  # type: ignore[attr-defined]
+                raise error
             delay = min(60.0, 2.0 ** attempt) + self._rng.uniform(0, 1)
             self._sleep(delay)
-        raise error  # pragma: no cover
+            waited += delay
+        raise AssertionError("unreachable")  # pragma: no cover
 
     def complete(self, prompt: str) -> JudgeCompletion:
-        data = self._post(self.request_body(prompt))
-        return parse_gemini_response(data)
+        data, retries, waited = self._post(self.request_body(prompt))
+        return replace(parse_gemini_response(data), transient_retries=retries, retry_wait_s=round(waited, 4))
 
 
 def parse_gemini_response(data: dict[str, Any]) -> JudgeCompletion:

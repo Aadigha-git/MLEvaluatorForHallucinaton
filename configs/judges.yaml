@@ -9,9 +9,9 @@ status: frozen
 price_snapshot: "2026-10-10"
 
 budget:
-  # Covers every Step 8 development call, smoke tests included. Set after the smoke tests
-  # (amendment 2026-10-09, "Step 8 smoke tests and final budget cap"); any change is made by amendment.
-  cap_usd: 35.0
+  # Covers every Step 8 development call, smoke tests included. Set by amendment (2026-10-09,
+  # "Step 8 smoke tests and final budget cap"; raised in "Step 8 Gemini rate limit and cap raise").
+  cap_usd: 45.0
 
 max_attempts: 5
 max_retries: 5
@@ -49,6 +49,9 @@ judges:
     thinking_level: low
     # Includes thinking tokens (Gemini thinking guide), so it bounds billed output per call.
     max_output_tokens: 2048
+    # Client-side throttle below the key's 25 requests/minute quota for gemini-3.1-pro; waits are
+    # recorded as throttle_wait_s and excluded from latency.
+    max_requests_per_minute: 20
 
 prompts:
   variants: [judge-v1a, judge-v1b, judge-v1c, judge-v1d]

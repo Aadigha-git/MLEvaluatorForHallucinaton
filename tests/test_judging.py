@@ -32,6 +32,7 @@ from hdetect.judging.runner import (
     CacheMismatch,
     FatalApiError,
     JudgeItem,
+    RateLimiter,
     plan,
     read_rows,
     run_requests,
@@ -61,7 +62,7 @@ def item(i: int = 0) -> JudgeItem:
 
 def test_config_matches_the_amendment(cfg):
     assert cfg.status == "frozen"
-    assert cfg.cap_usd == 35.0
+    assert cfg.cap_usd == 45.0
     small, frontier = cfg.judges["small"], cfg.judges["frontier"]
     assert (small.provider, small.model_id, small.api_key_env) == (
         "nebius", "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B", "NEBIUS_API_KEY")
@@ -71,6 +72,7 @@ def test_config_matches_the_amendment(cfg):
         "gemini", "gemini-3.1-pro-preview", "GEMINI_API_KEY")
     assert (frontier.usd_per_million_input_tokens, frontier.usd_per_million_output_tokens) == (2.0, 12.0)
     assert (frontier.temperature, frontier.thinking_level) == (1.0, "low")
+    assert (frontier.max_requests_per_minute, small.max_requests_per_minute) == (20, None)
     assert cfg.variants == tuple(VARIANTS) and cfg.conditions == ("retrieved", "none")
     assert (cfg.repeat_subset_size, cfg.repeat_extra_runs) == (200, 2)
 
@@ -87,6 +89,7 @@ def test_config_matches_the_amendment(cfg):
     lambda r: r["selection"].update(metric="auroc"),
     lambda r: r["repeatability"].update(subset_size=100),
     lambda r: r.update(status="final"),
+    lambda r: r["judges"]["frontier"].update(max_requests_per_minute=0),
 ])
 def test_config_rejects_changes_to_the_frozen_design(edit):
     raw = copy.deepcopy(raw_config())
@@ -229,18 +232,25 @@ def test_gemini_request_settings_and_billed_output_includes_thinking(cfg):
 def test_gemini_retries_only_transient_errors(cfg):
     sleeps = []
     client, sent = gemini(cfg, [(503, {}), (429, {}), (200, GEMINI_OK)], sleeps)
-    assert client.complete("p").output_tokens == 159
+    c = client.complete("p")
+    assert c.output_tokens == 159
     assert len(sent) == 3 and len(sleeps) == 2
+    assert c.transient_retries == 2 and c.retry_wait_s == pytest.approx(sum(sleeps), abs=1e-4)
 
-    client, sent = gemini(cfg, [(400, {"error": "bad request"})])
+    client, sent = gemini(cfg, [(200, GEMINI_OK)])
+    c = client.complete("p")
+    assert (c.transient_retries, c.retry_wait_s) == (0, 0.0)
+
+    client, sent = gemini(cfg, [(429, {}), (400, {"error": "bad request"})])
     with pytest.raises(ApiStatusError) as e:
         client.complete("p")
-    assert e.value.status_code == 400 and len(sent) == 1
+    assert e.value.status_code == 400 and len(sent) == 2 and e.value.transient_retries == 1
 
     client, sent = gemini(cfg, [(503, {})] * 6)
     with pytest.raises(ApiStatusError) as e:
         client.complete("p")
     assert e.value.status_code == 503 and len(sent) == cfg.max_retries + 1
+    assert e.value.transient_retries == cfg.max_retries
 
 
 def test_gemini_blocked_and_missing_usage():
@@ -333,6 +343,34 @@ def test_unreported_usage_is_charged_its_upper_bound_and_cost_left_unknown(cfg, 
     assert spent_usd(read_rows(out)) == row["charged_usd"]
 
 
+def test_rate_limiter_spaces_call_starts():
+    t = [100.0]
+    slept = []
+
+    def sleep(s):
+        slept.append(s)
+
+    limiter = RateLimiter(20, clock=lambda: t[0], sleep=sleep)
+    assert [limiter.wait() for _ in range(3)] == pytest.approx([0.0, 3.0, 6.0])
+    assert slept == pytest.approx([3.0, 6.0])
+    t[0] = 200.0
+    assert limiter.wait() == 0.0
+
+
+def test_throttle_wait_and_retries_are_recorded_outside_latency(cfg, tmp_path):
+    spec = cfg.judges["frontier"]
+    reqs = plan([item()], spec, ["judge-v1a"], ["none"])
+    limiter = SimpleNamespace(wait=lambda: 2.5)
+    c = JudgeCompletion('{"verdict": "hallucinated"}', "STOP", False, None, "id", "m", 100, 10, 5,
+                        transient_retries=1, retry_wait_s=1.2)
+    out = tmp_path / "f.jsonl"
+    run_requests(reqs, {"frontier": FakeClient([c])}, cfg.judges, out, Budget(45.0, cfg.judges),
+                 limiters={"frontier": limiter})
+    r = read_rows(out)[0]
+    assert (r["throttle_wait_s"], r["transient_retries"], r["retry_wait_s"]) == (2.5, 1, 1.2)
+    assert r["latency_s"] < 2.5
+
+
 def test_cache_mismatch_aborts_before_any_call(cfg, tmp_path):
     spec = cfg.judges["small"]
     out = tmp_path / "s.jsonl"
@@ -363,6 +401,17 @@ def test_failures_are_scored_as_wrong_and_reported():
     assert s["f1"] == pytest.approx(2 / 5)
     assert s["f1_parsed_only"] == 1.0 and s["n_parsed"] == 1
     assert not s["cost_complete"]
+
+
+def test_latency_flags_retried_and_unknown_calls():
+    labels = {"a": 1, "b": 0, "c": 1}
+    rows = {"a": {**row("a", "hallucinated"), "transient_retries": 0, "latency_s": 2.0},
+            "b": {**row("b", "not_hallucinated"), "transient_retries": 2, "latency_s": 9.0},
+            "c": row("c", "hallucinated")}
+    s = score_cell(rows, labels, ["a", "b", "c"])
+    assert (s["latency_retried"], s["latency_retry_unknown"]) == (1, 1)
+    assert s["latency_no_retry_median_s"] == 2.0 and s["latency_no_retry_p95_s"] == 2.0
+    assert s["latency_p95_s"] > 8.0
 
 
 def test_f1_counts_matches_definition():

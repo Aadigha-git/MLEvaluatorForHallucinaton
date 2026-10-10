@@ -11,7 +11,7 @@ import json
 import threading
 import time
 from collections import Counter
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -158,6 +158,28 @@ class Budget:
             self.spent += charged
 
 
+class RateLimiter:
+    """Spaces call starts at least 60 / `per_minute` seconds apart across threads. The wait happens
+    before the latency clock starts, so it is recorded as `throttle_wait_s`, never as latency."""
+
+    def __init__(self, per_minute: float, clock: Callable[[], float] = time.monotonic,
+                 sleep: Callable[[float], None] = time.sleep):
+        self.interval = 60.0 / per_minute
+        self._clock, self._sleep = clock, sleep
+        self._next = float("-inf")
+        self._lock = threading.Lock()
+
+    def wait(self) -> float:
+        with self._lock:
+            now = self._clock()
+            start = max(now, self._next)
+            self._next = start + self.interval
+        delay = start - now
+        if delay > 0:
+            self._sleep(delay)
+        return delay
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
@@ -167,9 +189,10 @@ def _fatal(e: Exception) -> bool:
     return isinstance(code, int) and 400 <= code < 500 and code not in RETRYABLE_4XX
 
 
-def call(client: JudgeClient, spec: JudgeSpec, req: JudgeRequest, attempt: int, bound: float) -> dict:
+def call(client: JudgeClient, spec: JudgeSpec, req: JudgeRequest, attempt: int, bound: float,
+         throttle_wait_s: float = 0.0) -> dict:
     row = {k: v for k, v in asdict(req).items() if k != "prompt"}
-    row.update(attempt=attempt, started_at=_now())
+    row.update(attempt=attempt, started_at=_now(), throttle_wait_s=round(throttle_wait_s, 4))
     t0 = time.perf_counter()
     try:
         c = client.complete(req.prompt)
@@ -177,6 +200,7 @@ def call(client: JudgeClient, spec: JudgeSpec, req: JudgeRequest, attempt: int, 
         if _fatal(e):
             raise FatalApiError(f"{type(e).__name__}: {e}"[:1000]) from e
         row.update(status=ERROR, error=f"{type(e).__name__}: {e}"[:1000], api_latency_s=round(time.perf_counter() - t0, 4),
+                   transient_retries=getattr(e, "transient_retries", None), retry_wait_s=getattr(e, "retry_wait_s", None),
                    cost_usd=None, charged_usd=0.0, finished_at=_now())
         return row
     api_s = time.perf_counter() - t0
@@ -189,7 +213,7 @@ def call(client: JudgeClient, spec: JudgeSpec, req: JudgeRequest, attempt: int, 
         status=OK, error=None, text=c.text, reasoning_returned=bool(c.reasoning and c.reasoning.strip()),
         finish_reason=c.finish_reason, blocked=c.blocked, response_id=c.response_id, model_returned=c.model,
         input_tokens=c.input_tokens, output_tokens=c.output_tokens, thinking_tokens=c.thinking_tokens,
-        parse_outcome=parsed.outcome, verdict=parsed.verdict,
+        transient_retries=c.transient_retries, retry_wait_s=c.retry_wait_s, parse_outcome=parsed.outcome, verdict=parsed.verdict,
         cost_usd=cost, charged_usd=cost if known else bound,
         api_latency_s=round(api_s, 4), parse_s=round(parse_s, 6),
         latency_s=round(req.retrieval_s + api_s + parse_s, 4), finished_at=_now(),
@@ -199,7 +223,7 @@ def call(client: JudgeClient, spec: JudgeSpec, req: JudgeRequest, attempt: int, 
 
 def run_requests(requests: list[JudgeRequest], clients: Mapping[str, JudgeClient], specs: Mapping[str, JudgeSpec],
                  out_path: str | Path, budget: Budget, *, concurrency: int = 1, max_attempts: int = 5,
-                 progress_every: int = 0) -> dict[str, int]:
+                 progress_every: int = 0, limiters: Mapping[str, RateLimiter] | None = None) -> dict[str, int]:
     """Make every planned call without an `ok` row (and with attempts left), appending results.
 
     A setup error or a budget stop halts the run: no further calls start, calls in flight finish and
@@ -224,9 +248,15 @@ def run_requests(requests: list[JudgeRequest], clients: Mapping[str, JudgeClient
                     counts["not_started"] += 1
                 return
             bound = 0.0
+            limiter = (limiters or {}).get(req.judge)
             try:
+                waited = limiter.wait() if limiter else 0.0
+                if stop.is_set():
+                    with lock:
+                        counts["not_started"] += 1
+                    return
                 bound = budget.reserve(req.judge, req.prompt)
-                row = call(clients[req.judge], specs[req.judge], req, tried[req.request_id] + 1, bound)
+                row = call(clients[req.judge], specs[req.judge], req, tried[req.request_id] + 1, bound, waited)
             except (FatalApiError, BudgetExceeded) as e:
                 budget.settle(bound, 0.0)
                 with lock:

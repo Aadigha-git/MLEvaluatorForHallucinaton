@@ -31,7 +31,7 @@ from hdetect.judging.clients import load_dotenv, make_client
 from hdetect.judging.config import load_judge_config
 from hdetect.judging.inputs import load_judge_inputs
 from hdetect.judging.prompts import template_hash
-from hdetect.judging.runner import Budget, plan, read_rows, run_requests, spent_usd
+from hdetect.judging.runner import Budget, RateLimiter, plan, read_rows, run_requests, spent_usd
 from hdetect.judging.scoring import agreement, final_rows, repeat_subset, score_cell, select_variant
 from hdetect.training.access import OPENED, data_access_table, install_audit_hook, is_test_path
 
@@ -119,8 +119,10 @@ def main() -> None:
         for j, reqs in work.items():
             spec = jcfg.judges[j]
             print(f"{j} ({spec.model_id}): {len(reqs)} planned calls; ${budget.spent:.4f} of ${jcfg.cap_usd:.2f} spent")
+            limiters = {j: RateLimiter(spec.max_requests_per_minute)} if spec.max_requests_per_minute else None
             counts = run_requests(reqs, {j: make_client(spec, jcfg)}, jcfg.judges, out_dir / f"{j}.jsonl", budget,
-                                  concurrency=jcfg.concurrency, max_attempts=jcfg.max_attempts, progress_every=500)
+                                  concurrency=jcfg.concurrency, max_attempts=jcfg.max_attempts, progress_every=500,
+                                  limiters=limiters)
             print(f"  {counts}")
 
     elif args.stage == "select":

@@ -33,6 +33,7 @@ class JudgeSpec:
     chat_template_kwargs: dict[str, Any] = field(default_factory=dict)
     thinking_level: str | None = None
     max_prompt_tokens_at_price: int | None = None
+    max_requests_per_minute: float | None = None
 
     def cost_usd(self, input_tokens: int, output_tokens: int) -> float:
         return (input_tokens * self.usd_per_million_input_tokens
@@ -107,6 +108,8 @@ def _validate(cfg: JudgeConfig, raw: dict[str, Any]) -> None:
             raise ConfigError(f"{j.name}: judges must come from a family other than Qwen and Gemma")
         if j.max_output_tokens < 1 or j.usd_per_million_input_tokens <= 0 or j.usd_per_million_output_tokens <= 0:
             raise ConfigError(f"{j.name}: max_output_tokens and prices must be positive")
+        if j.max_requests_per_minute is not None and j.max_requests_per_minute <= 0:
+            raise ConfigError(f"{j.name}: max_requests_per_minute must be positive")
     small, frontier = cfg.judges["small"], cfg.judges["frontier"]
     if small.temperature != 0:
         raise ConfigError("the small judge runs at temperature 0")

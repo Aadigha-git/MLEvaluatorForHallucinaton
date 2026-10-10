@@ -896,3 +896,38 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
     - both smoke tests passed.
   - Next: prompt tuning on the 995 labeled `val_id` answers, for both judges and both evidence
     conditions. No test split is read or judged.
+- **2026-10-09, Step 8 Gemini rate limit and cap raise (recorded during prompt tuning, before any
+  prompt was selected).**
+  - **Nemotron tuning is complete.** All 7,960 calls succeeded and every verdict parsed. The
+    expected model ID came back each time, no call returned reasoning text, and the cost was $0.34.
+  - **Gemini tuning was stopped after 161 calls**, of which 129 succeeded and every one of those
+    parsed. Two problems:
+    - 32 calls failed with HTTP 429. The message was "Quota exceeded for metric:
+      generate_requests_per_model, limit: 25, model: gemini-3.1-pro". The key allows 25 requests
+      per minute.
+    - Thinking tokens averaged 208 per call (median 161, 95th percentile 491), against 72 in the
+      smoke test. That projected about $35.7 for the full plan, above the $35 cap.
+    - Spend at the stop, all Step 8 calls included: $0.86.
+  - **Decisions by the project owner:**
+    - **Cap.** It is raised to **$45.00**. The guard is unchanged.
+    - **Throttle.** Gemini call starts are spaced at least 3 seconds apart (20 requests per minute,
+      `max_requests_per_minute: 20`), below the 25-per-minute quota. Concurrency stays at 8.
+      - The throttle wait happens before the latency clock starts. It is stored as
+        `throttle_wait_s` and is not part of latency.
+    - **Retry recording.** The Gemini client now records, for each call:
+      - `transient_retries`, the number of transient errors retried inside the call;
+      - `retry_wait_s`, the backoff slept for them, which is part of API latency.
+
+      The `openai` package does not expose its internal retries, so Nebius calls record these as
+      unknown.
+    - **Latency reporting** keeps the median and 95th percentile over all calls, as pre-specified,
+      and adds:
+      - the counts of calls that were retried and of calls whose retry status is unknown;
+      - the median and 95th percentile over calls with zero retries.
+    - **Interrupted calls.** The 161 calls from the interrupted run are kept. Their 129 verdicts
+      are final, and each of the 32 failed calls counts as one of its five attempts. Those calls
+      did not record retries, so their latency is flagged as possibly including 429 backoff.
+  - **Unchanged:** models, settings, prompts, inputs, conditions, parsing, scoring, selection, and
+    repeatability.
+  - `configs/judges.yaml` stays `status: frozen`, now with judge-config hash `bd2f95a657e2` and
+    file SHA-256 `c85c305e7c4c8d768712ef169e73c03af21d8c90e179fa195b720f35064df267`.

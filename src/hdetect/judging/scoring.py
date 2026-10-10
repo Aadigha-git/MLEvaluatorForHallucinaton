@@ -72,6 +72,9 @@ def score_cell(rows: Mapping[str, dict], labels: Mapping[str, int], ids: Sequenc
     costs = [r["cost_usd"] for r in ok_rows]
     lat_all = [r["latency_s"] for r in ok_rows]
     lat_failed = [r["latency_s"] for r, p in zip(got, preds) if p is None and r is not None and r["status"] == OK]
+    # A transient retry's backoff is inside api_latency_s. `transient_retries` is None when the client
+    # could not observe retries (Nebius via `openai`; Gemini calls made before throttling was added).
+    lat_clean = [r["latency_s"] for r in ok_rows if r.get("transient_retries") == 0]
     return {
         "n": len(ids),
         "verdicts": sum(p is not None for p in preds),
@@ -89,6 +92,9 @@ def score_cell(rows: Mapping[str, dict], labels: Mapping[str, int], ids: Sequenc
         "cost_per_verdict_usd": (sum(c for c in costs if c is not None) / len(ids)) if ids else None,
         **{f"latency_{k}_s": v for k, v in _summary(lat_all).items()},
         **{f"latency_failed_{k}_s": v for k, v in _summary(lat_failed).items()},
+        "latency_retried": sum((r.get("transient_retries") or 0) > 0 for r in ok_rows),
+        "latency_retry_unknown": sum(r.get("transient_retries") is None for r in ok_rows),
+        **{f"latency_no_retry_{k}_s": v for k, v in _summary(lat_clean).items()},
     }
 
 
