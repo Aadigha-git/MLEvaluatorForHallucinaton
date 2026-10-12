@@ -1,0 +1,26 @@
+{
+  "cap_usd": 45.0,
+  "git": {
+    "commit": "d4a32278dd1819eb08a04adf67f082b9c9309c55",
+    "dirty": false
+  },
+  "judge_caps_usd": {
+    "frontier": 5.0,
+    "small": null
+  },
+  "judge_config_hash": "4f7631241eb1",
+  "labels_note": "HaluEval agreement gate failed: Cohen's kappa 0.7117 in the first round and 0.578 in the fresh round under rule version 2",
+  "outputs_sha256": {
+    "data/judges/frontier.jsonl": "51631aa31cfa15e5f355a24d5dec60a5846d09a3bba23e06962a6a4ac2e81879",
+    "data/judges/small.jsonl": "c280508c72b0e347f182e933ce496e325787bb3b328d880f3402a75bf21dd50c",
+    "data/judges/smoke.jsonl": "91f16f751f18f159c83d171131e6048ba5aaa5f193335474848347e7e0a28b37"
+  },
+  "price_snapshot": "2026-10-10",
+  "python": "3.12.13",
+  "repeat_subset_sha256": "e4694d3de242b621bd09914b28e31d4309df968cd5a52291d3a9aa199372484c",
+  "spent_usd": 2.3234607,
+  "spent_usd_by_judge": {
+    "frontier": 1.9510200000000009,
+    "small": 0.3724407000000022
+  }
+}

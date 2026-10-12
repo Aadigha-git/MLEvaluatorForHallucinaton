@@ -1,0 +1,5 @@
+judge,condition,variant,n,all_runs_identical,agree_run0_run1,agree_run0_run2,agree_run1_run2,verdict_flips
+small,retrieved,judge-v1a,200,0.975,0.985,0.98,0.985,5
+small,none,judge-v1c,200,0.935,0.96,0.955,0.955,13
+frontier,retrieved,judge-v1b,30,0.9666666666666667,0.9666666666666667,1.0,0.9666666666666667,1
+frontier,none,judge-v1c,30,1.0,1.0,1.0,1.0,0

@@ -1,0 +1,24 @@
+{
+  "judge_config_hash": "4f7631241eb1",
+  "rule": "max val_id hallucinated-class F1; ties: fewer failures, then order",
+  "selected": {
+    "frontier": {
+      "none": "judge-v1c",
+      "retrieved": "judge-v1b"
+    },
+    "small": {
+      "none": "judge-v1c",
+      "retrieved": "judge-v1a"
+    }
+  },
+  "template_sha256": {
+    "judge-v1a": "4a25a74332bd3e8702b60581e07d140f7e845da7894f9a7b8af6e3fe5910a95c",
+    "judge-v1b": "a8a2ec824373eb9938b85b78b2eded90176547a3ba92955724ed9c6f95ec47f1",
+    "judge-v1c": "c961cb1e24623f9fb09dbdaf050a875d687ebfef0cfbbc3800d34c73fdee968e",
+    "judge-v1d": "34d35bd52ef26c83615ee1bb28e6594f26ac6996581a06d8069eaefcdc9a17b6"
+  },
+  "tuning_n": {
+    "frontier": 45,
+    "small": 995
+  }
+}
