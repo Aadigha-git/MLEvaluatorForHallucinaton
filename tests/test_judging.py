@@ -75,7 +75,7 @@ def test_config_matches_the_amendment(cfg):
     assert (frontier.usd_per_million_input_tokens, frontier.usd_per_million_output_tokens) == (2.0, 12.0)
     assert (frontier.temperature, frontier.thinking_level) == (1.0, "low")
     assert (frontier.max_requests_per_minute, small.max_requests_per_minute) == (20, None)
-    assert (frontier.cap_usd, frontier.tune_first_n, frontier.repeat_first_n) == (5.0, 120, 40)
+    assert (frontier.cap_usd, frontier.tune_first_n, frontier.repeat_first_n) == (5.0, 45, 30)
     assert (small.cap_usd, small.tune_first_n, small.repeat_first_n) == (None, None, None)
     assert cfg.variants == tuple(VARIANTS) and cfg.conditions == ("retrieved", "none")
     assert (cfg.repeat_subset_size, cfg.repeat_extra_runs) == (200, 2)
@@ -95,7 +95,7 @@ def test_config_matches_the_amendment(cfg):
     lambda r: r.update(status="final"),
     lambda r: r["judges"]["frontier"].update(max_requests_per_minute=0),
     lambda r: r["judges"]["frontier"].update(cap_usd=50.0),
-    lambda r: r["judges"]["frontier"].update(repeat_first_n=121),
+    lambda r: r["judges"]["frontier"].update(repeat_first_n=46),
     lambda r: r["judges"]["frontier"].pop("repeat_first_n"),
 ])
 def test_config_rejects_changes_to_the_frozen_design(edit):

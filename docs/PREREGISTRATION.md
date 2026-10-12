@@ -979,3 +979,28 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
     Nemotron's plan.
   - `configs/judges.yaml` stays `status: frozen`, now with judge-config hash `62b6cf642e3b` and
     file SHA-256 `d420aa29d578ba0a3206b2f5fb297534edcb646facb2696190f1e2cd78a31001`.
+- **2026-10-12, Step 8 one-day Gemini plan (recorded during prompt tuning, before any prompt was
+  selected).**
+  - **Why.** The project owner asked that all remaining Gemini work fit within one day's quota of
+    250 requests, instead of taking about 4 days. No Gemini call has been made since the previous
+    amendment. Gemini still has 243 verdicts: the first 30 answers in answer-ID order, all 8 cells
+    each, plus 3 cells of the 31st.
+  - **Change.** It replaces the 120/40 plan of 2026-10-10:
+    - **Tuning.** All four variants and both conditions on the first **45** labeled `val_id`
+      answers in answer-ID order: 117 more calls.
+    - **Repeatability.** The selected prompt runs twice more per condition on the first **30**
+      of those answers: 120 calls.
+    - **Total:** 237 new Gemini calls, under the daily quota with headroom. Projected cost is
+      about $1.0, so Gemini's total comes to about $2.0 of its $5.00 cap.
+    - The shared-subset comparison (`reports/step8/tuning_shared_subset.csv`) now covers the
+      first 45 answers.
+  - **Order of work.** Gemini tuning runs to completion. Then `select` runs for both judges. Then
+    the repeat runs: Nemotron on the 200-answer subset and Gemini on its 30 answers.
+  - **Precision cost, disclosed.** With 45 answers, Gemini's F1 and its prompt selection are very
+    imprecise, and with 30 answers so is its repeatability. These are reported with their n.
+    Gemini's prompt choice is a weak selection and is disclosed as such. Gemini's test-split
+    evaluation in Step 9 is not changed by this amendment.
+  - **Unchanged:** models, settings, prompts, inputs, conditions, parsing, scoring, caps, quota
+    handling, and Nemotron's plan.
+  - `configs/judges.yaml` stays `status: frozen`, now with judge-config hash `4f7631241eb1` and
+    file SHA-256 `f77c155110195e742e27908c094fececd082c274021c3d3cc6b3286b59c2f823`.
