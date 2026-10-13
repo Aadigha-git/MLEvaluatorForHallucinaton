@@ -1,0 +1,41 @@
+# Step 9 test evaluation (docs/PREREGISTRATION.md; amendment 2026-10-12 "Step 9 evaluation details").
+# Frozen by that amendment: test-split judging and scoring may run. Any change needs a new amendment.
+
+status: frozen
+
+splits: [test_id, test_ood, test_heldout]
+rq1_splits: [test_ood, test_heldout]
+rq2_reference: test_id
+rq2_splits: [test_ood, test_heldout]
+rq2_margin: 0.05
+primary_condition: retrieved
+secondary_condition: none
+gold_splits: [test_id, test_heldout]
+
+bootstrap:
+  replicates: 10000
+  # Split k (in `splits` order) uses seed + k * seed_stride, so splits are resampled independently.
+  seed: 20261008
+  seed_stride: 10000000
+  chunk: 500
+
+ece_bins: 10
+
+hand_labels: data/audit/unresolved_test_v2_blind.csv
+
+judges:
+  # Step 9 judge calls only (rows under paths.judge_outputs); Step 8 spend is not counted here.
+  cap_usd: 10.0
+  frontier_cap_usd: 8.0
+  plan:
+    small: {splits: [test_id, test_ood, test_heldout], conditions: [retrieved, none]}
+    frontier: {splits: [test_ood, test_heldout], conditions: [retrieved]}
+
+paths:
+  models: data/models/step7
+  step6_reports: reports/step6
+  step7_reports: reports/step7
+  selected_prompts: reports/step8/selected_prompts.json
+  judge_outputs: data/judges/test
+  reports: reports/step9
+  stand_in_reports: data/step9_stand_in

@@ -1004,3 +1004,106 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
     handling, and Nemotron's plan.
   - `configs/judges.yaml` stays `status: frozen`, now with judge-config hash `4f7631241eb1` and
     file SHA-256 `f77c155110195e742e27908c094fececd082c274021c3d3cc6b3286b59c2f823`.
+- **2026-10-12, Step 9 evaluation details (recorded before any test split was scored or judged).**
+  These are choices that "Metrics and uncertainty", RQ1, RQ2, "Decision policy", and "Cost and
+  latency" leave open. The code (`ml/evaluation/evaluate.py`, `ml/evaluation/run_test_judges.py`,
+  `src/hdetect/evaluation/`) was built and dry-run with `val_id` standing in for every test split.
+  No test split has been scored or judged. The test splits' automatic labels were read only to
+  export the blind hand-label queue, and only its total size (189 answers) was printed.
+  - **Test labels.** Final labels are the rule-version-2 automatic labels plus the project owner's
+    blind hand labels in `data/audit/unresolved_test_v2_blind.csv`. Evaluation refuses to run until
+    every queued answer has a hand label.
+    - Excluded and counted per split: primary API failures, empty answers, and `undecidable`
+      hand labels.
+    - The 5% flag uses (API failures + empty + undecidable) / planned questions, per split.
+      Every table row that uses a flagged split is marked.
+  - **Frozen inputs, checked before scoring.**
+    - The Step 7 artifacts must match the SHA-256 hashes in their manifest.
+    - Each classifier's F1 threshold is rebuilt on `val_id` and must equal the stored value
+      exactly.
+    - Each best single feature is the one marked in `reports/step6/validation_summary.csv`. Its
+      threshold and direction are recomputed on `val_id` with the Step 6 rule and must match
+      `reports/step6/single_features.csv` to its 6 decimals.
+    - Gold evidence uses the retrieved-evidence classifier. As in Step 6, its threshold is
+      re-chosen on `val_id` gold-evidence scores and checked against
+      `reports/step6/validation_per_seed.csv`.
+    - Feature matrices are C-ordered, and rows are selected before scoring, as in Steps 6 and 7.
+      The dry run showed why this matters: a Fortran-ordered matrix shifted scores by one unit in
+      the last place, which moved the answers sitting exactly at a stored threshold.
+  - **Bootstrap.**
+    - 10,000 replicates for each split, evidence condition, tier, and subset.
+    - Split k uses seed 20261008 + k × 10,000,000, with k = 0, 1, 2 for `test_id`, `test_ood`,
+      and `test_heldout`, and k = 3 for the pooled exploratory sample.
+    - Within a split, every evaluator in a comparison is scored on the same draws. The RQ2 drop
+      pairs two splits, which are resampled independently.
+    - Resampling-tier comparisons use only answers with at least one usable resample (F9), so
+      their draws are over that set of rows.
+    - Seed-averaged statistics, and the differences between them, are rounded to 12 decimals
+      before any comparison. The all-hallucinated F1 is computed with the same arithmetic as
+      every other F1 (still 2p / (1 + p) within each replicate). Why: in the dry run, a classifier
+      that flags every answer differed from the baseline by up to ±1.1 × 10⁻¹⁶. That was enough to
+      put a lower bound "above 0" and record a spurious RQ2 pass.
+  - **Research-question outcomes.**
+    - Outcomes are reported for every tier, evidence condition, subset, and metric. Primary means
+      retrieved evidence, all answers, F1, and the splits `test_ood` and `test_heldout`.
+    - The secondary subsets, abstentions excluded and truncated primary answers excluded, are
+      applied to all three splits, including the RQ2 reference `test_id`.
+    - **AUROC versions.** RQ1 compares AUROC on uncalibrated scores. The AUROC version of RQ2
+      keeps the 0.05 margin on Δ, now in AUROC, and replaces the all-hallucinated baseline with
+      chance, 0.5. Both are secondary.
+  - **LLM judges on the test splits** (`ml/evaluation/run_test_judges.py`).
+    - **Plan, chosen by the project owner:**
+      - Nemotron judges all three test splits under both conditions.
+      - Gemini judges `test_ood` and `test_heldout` under retrieved evidence only: at most 1,242
+        calls. At 250 requests a day that takes about 5 days, using `--wait-for-daily-quota`.
+        Projected cost is about $5.7.
+      - Gemini therefore has no `test_id` result, no no-evidence result, and no pooled result.
+    - **Prompts and settings.** Prompts are those in `reports/step8/selected_prompts.json`, with
+      their template hashes checked. Settings are the frozen `configs/judges.yaml` ones, including
+      Gemini's 20-requests-per-minute throttle. One run only; no test repeats.
+    - **Budget.** A separate Step 9 cap of **$10.00** covers test judge calls only. Gemini also
+      has its own **$8.00** cap within it, which replaces its Step 8 cap of $5.00 for these calls.
+      The guard rebuilds spend from the stored rows, as in Step 8.
+    - **Inputs.** Every non-empty primary answer is judged. The judge never sees a label. Answers
+      later excluded as undecidable are not scored.
+    - **Scoring.** Judges are fixed binary predictions, with no AUROC. Failures are scored as
+      wrong (Step 8 rule). Each judge is compared with each tier's classifier on the same draws
+      (classifier F1 minus judge F1). Evaluation refuses to run if any evaluated answer lacks a
+      judge row.
+  - **Exploratory analyses** (no outcome is declared):
+    - **Gold evidence** on `test_id` and `test_heldout`: the classifier against the best
+      gold-evidence single feature.
+    - **Pooled:** all three test splits as one sample, with cluster IDs kept apart by split.
+    - **Calibration and policy drift**, per split, tier, condition, and seed: ECE (10 bins), a
+      reliability table, and the frozen policy's achieved band rates next to its `val_id` rates.
+  - **Cost and latency.**
+    - **Classifier latency** per question is the sum of:
+      - retrieval time, under retrieved evidence only;
+      - the feature times recorded at extraction, from the timing columns covering the tier's
+        features, with a shared column counted once;
+      - the classifier, calibrator, and policy band, timed at batch size 1, warm, single-threaded,
+        with the seed-20261008 artifact.
+    - **The resampling tier** adds resampling wall-clock from the bulk-run rows. Parallel-
+      equivalent (maximum of the 5 calls) and sequential (their sum) are both reported. Its cost is
+      the 5 calls' tokens × snapshot prices. Fewer than 5 stored resamples marks the cost
+      incomplete.
+    - **A single feature** costs its own timing column, plus retrieval if it is evidence-dependent.
+    - **A judge's latency** is its stored per-call latency: retrieval, plus API time including
+      retries, plus parsing, at concurrency 8. Its cost per verdict is the mean over evaluated
+      answers.
+    - The Pareto chart plots F1 (retrieved evidence, all answers) against incremental cost per
+      verdict, for each primary split.
+  - **Outputs.**
+    - `reports/step9/` is written once and never overwritten. It includes a manifest with input,
+      config, and artifact hashes, the bootstrap seeds, and `data_access.csv`.
+    - Dry-run output goes to `data/step9_stand_in/` (git-ignored). The dry run reproduced the
+      Step 6–8 `val_id` values exactly: classifier and single-feature F1 and AUROC, judge F1
+      (0.831 and 0.807 for Nemotron), and the policy rates.
+  - **Freeze and order of work.**
+    - On approval, `configs/evaluation.yaml` changes to `status: frozen`, and its SHA-256 is
+      recorded in the commit that freezes it.
+    - Test judge calls may then run while hand labeling continues, since judges never see labels.
+    - `ml/evaluation/evaluate.py` runs once, after the hand labels and the judge runs are both
+      complete.
+  - **Unchanged:** the research questions, criteria, hypothesis tiers, metrics, thresholds,
+    artifacts, judge models, prompts, and settings.
