@@ -1,0 +1,17 @@
+judge,split,condition,tier,n,f1_classifier,f1_judge,diff_classifier_minus_judge,diff_ci_low,diff_ci_high,flagged_label_split
+small,test_id,retrieved,single_shot,500,0.728353,0.79063,-0.062276,-0.085653,-0.039324,False
+small,test_id,retrieved,resampling,500,0.723785,0.79063,-0.066844,-0.090707,-0.043397,False
+small,test_id,none,single_shot,500,0.723785,0.771879,-0.048094,-0.070904,-0.025381,False
+small,test_id,none,resampling,500,0.71817,0.771879,-0.05371,-0.078299,-0.029722,False
+small,test_ood,retrieved,single_shot,242,0.481963,0.515679,-0.033716,-0.071269,0.002998,False
+small,test_ood,retrieved,resampling,242,0.512765,0.515679,-0.002915,-0.03384,0.029198,False
+small,test_ood,none,single_shot,242,0.49505,0.621005,-0.125955,-0.181669,-0.069954,False
+small,test_ood,none,resampling,242,0.52163,0.621005,-0.099374,-0.159606,-0.038642,False
+small,test_heldout,retrieved,single_shot,1000,0.340249,0.423445,-0.083196,-0.104777,-0.060804,False
+small,test_heldout,retrieved,resampling,1000,0.340072,0.423445,-0.083373,-0.10499,-0.060989,False
+small,test_heldout,none,single_shot,1000,0.340532,0.32,0.020532,-0.026099,0.06809,False
+small,test_heldout,none,resampling,1000,0.340095,0.32,0.020095,-0.026436,0.067278,False
+frontier,test_ood,retrieved,single_shot,242,0.481963,0.565217,-0.083254,-0.18691,0.023923,False
+frontier,test_ood,retrieved,resampling,242,0.512765,0.565217,-0.052453,-0.158421,0.056938,False
+frontier,test_heldout,retrieved,single_shot,1000,0.340249,0.895,-0.554751,-0.600327,-0.510034,False
+frontier,test_heldout,retrieved,resampling,1000,0.340072,0.895,-0.554928,-0.600403,-0.510323,False

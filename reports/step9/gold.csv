@@ -1,0 +1,13 @@
+split,condition,tier,subset,evaluator,n,prevalence,f1,f1_seed_min,f1_seed_max,f1_seed_std,n_seeds,auroc,auroc_seed_min,auroc_seed_max,auroc_seed_std,f1_ci_low,f1_ci_high,f1_degenerate_replicates,auroc_ci_low,auroc_ci_high,auroc_skipped_replicates,flagged_label_split
+test_id,gold,single_shot,all,classifier,500,0.572,0.727735,0.727735,0.727735,0.0,3.0,0.378499,0.375727,0.379885,0.00196,0.691099,0.762376,0.0,0.327414,0.430595,0.0,False
+test_id,gold,single_shot,all,feature:lex_overlap_max,500,0.572,0.780059,0.780059,0.780059,0.0,1.0,0.808035,0.808035,0.808035,0.0,0.744745,0.813032,0.0,0.769425,0.845294,0.0,False
+test_id,gold,single_shot,all,all_hallucinated,500,0.572,0.727735,,,,,0.5,,,,0.691099,0.762376,,,,,False
+test_id,gold,resampling,all,classifier,500,0.572,0.721228,0.721228,0.721228,0.0,3.0,0.459747,0.4535,0.47224,0.008834,0.684211,0.756219,0.0,0.408055,0.511335,0.0,False
+test_id,gold,resampling,all,feature:lex_overlap_max,500,0.572,0.780059,0.780059,0.780059,0.0,1.0,0.808035,0.808035,0.808035,0.0,0.744745,0.813032,0.0,0.769425,0.845294,0.0,False
+test_id,gold,resampling,all,all_hallucinated,500,0.572,0.727735,,,,,0.5,,,,0.691099,0.762376,,,,,False
+test_heldout,gold,single_shot,all,classifier,1000,0.205,0.340249,0.340249,0.340249,0.0,3.0,0.430567,0.407805,0.441948,0.016095,0.301919,0.377726,0.0,0.387114,0.475456,0.0,False
+test_heldout,gold,single_shot,all,feature:lex_overlap_max,1000,0.205,0.340815,0.340815,0.340815,0.0,1.0,0.614607,0.614607,0.614607,0.0,0.302405,0.378422,0.0,0.571132,0.658298,0.0,False
+test_heldout,gold,single_shot,all,all_hallucinated,1000,0.205,0.340249,,,,,0.5,,,,0.301919,0.377726,,,,,False
+test_heldout,gold,resampling,all,classifier,1000,0.205,0.340249,0.340249,0.340249,0.0,3.0,0.447341,0.445958,0.450106,0.001955,0.301919,0.377726,0.0,0.403461,0.490867,0.0,False
+test_heldout,gold,resampling,all,feature:lex_overlap_max,1000,0.205,0.340815,0.340815,0.340815,0.0,1.0,0.614607,0.614607,0.614607,0.0,0.302405,0.378422,0.0,0.571132,0.658298,0.0,False
+test_heldout,gold,resampling,all,all_hallucinated,1000,0.205,0.340249,,,,,0.5,,,,0.301919,0.377726,,,,,False

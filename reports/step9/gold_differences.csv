@@ -1,0 +1,9 @@
+split,tier,best_single,hypothesis_tier,metric,classifier_value,best_single_value,diff,diff_ci_low,diff_ci_high,skipped_replicates,degenerate_replicates,passes,flagged_label_split
+test_id,single_shot,feature:lex_overlap_max,exploratory,f1,0.727735,0.780059,-0.052323,-0.076367,-0.02888,0,0,False,False
+test_id,single_shot,feature:lex_overlap_max,exploratory,auroc,0.378499,0.808035,-0.429536,-0.50566,-0.352974,0,0,False,False
+test_id,resampling,feature:lex_overlap_max,exploratory,f1,0.721228,0.780059,-0.058831,-0.083409,-0.034648,0,0,False,False
+test_id,resampling,feature:lex_overlap_max,exploratory,auroc,0.459747,0.808035,-0.348289,-0.425332,-0.270797,0,0,False,False
+test_heldout,single_shot,feature:lex_overlap_max,exploratory,f1,0.340249,0.340815,-0.000566,-0.001456,0.0,0,0,False,False
+test_heldout,single_shot,feature:lex_overlap_max,exploratory,auroc,0.430567,0.614607,-0.184039,-0.250191,-0.117303,0,0,False,False
+test_heldout,resampling,feature:lex_overlap_max,exploratory,f1,0.340249,0.340815,-0.000566,-0.001456,0.0,0,0,False,False
+test_heldout,resampling,feature:lex_overlap_max,exploratory,auroc,0.447341,0.614607,-0.167266,-0.236152,-0.099846,0,0,False,False

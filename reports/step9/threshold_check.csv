@@ -1,0 +1,25 @@
+tier,condition,evaluator,seed,val_threshold,direction,reference,reference_source,reproduced
+single_shot,retrieved,feature:lex_overlap_max,,-0.666667,low,-0.666667,reports/step6/single_features.csv,True
+single_shot,retrieved,hist_gradient_boosting,20261008,0.201085,high,0.201085,Step 7 artifact,True
+single_shot,retrieved,hist_gradient_boosting,20261009,0.201085,high,0.201085,Step 7 artifact,True
+single_shot,retrieved,hist_gradient_boosting,20261010,0.104301,high,0.104301,Step 7 artifact,True
+single_shot,none,feature:log_length,,2.302585,high,2.302585,reports/step6/single_features.csv,True
+single_shot,none,logistic_regression,20261008,0.375356,high,0.375356,Step 7 artifact,True
+single_shot,none,logistic_regression,20261009,0.269289,high,0.269289,Step 7 artifact,True
+single_shot,none,logistic_regression,20261010,0.375356,high,0.375356,Step 7 artifact,True
+single_shot,gold,feature:lex_overlap_max,,-0.714286,low,-0.714286,reports/step6/single_features.csv,True
+single_shot,gold,hist_gradient_boosting,20261008,0.118322,high,0.118322,reports/step6/validation_per_seed.csv,True
+single_shot,gold,hist_gradient_boosting,20261009,0.118322,high,0.118322,reports/step6/validation_per_seed.csv,True
+single_shot,gold,hist_gradient_boosting,20261010,0.103931,high,0.103931,reports/step6/validation_per_seed.csv,True
+resampling,retrieved,feature:lex_overlap_max,,-0.666667,low,-0.666667,reports/step6/single_features.csv,True
+resampling,retrieved,logistic_regression,20261008,0.272727,high,0.272727,Step 7 artifact,True
+resampling,retrieved,logistic_regression,20261009,0.378097,high,0.378097,Step 7 artifact,True
+resampling,retrieved,logistic_regression,20261010,0.272727,high,0.272727,Step 7 artifact,True
+resampling,none,feature:log_length,,2.302585,high,2.302585,reports/step6/single_features.csv,True
+resampling,none,logistic_regression,20261008,0.406321,high,0.406321,Step 7 artifact,True
+resampling,none,logistic_regression,20261009,0.294698,high,0.294698,Step 7 artifact,True
+resampling,none,logistic_regression,20261010,0.406321,high,0.406321,Step 7 artifact,True
+resampling,gold,feature:lex_overlap_max,,-0.714286,low,-0.714286,reports/step6/single_features.csv,True
+resampling,gold,logistic_regression,20261008,0.273627,high,0.273627,reports/step6/validation_per_seed.csv,True
+resampling,gold,logistic_regression,20261009,0.380753,high,0.380753,reports/step6/validation_per_seed.csv,True
+resampling,gold,logistic_regression,20261010,0.273627,high,0.273627,reports/step6/validation_per_seed.csv,True

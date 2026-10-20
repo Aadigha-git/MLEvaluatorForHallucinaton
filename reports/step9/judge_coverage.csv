@@ -1,0 +1,9 @@
+judge,split,condition,variant,evaluated_answers,missing_rows,flagged_label_split
+small,test_id,retrieved,judge-v1a,500,0,False
+small,test_id,none,judge-v1c,500,0,False
+small,test_ood,retrieved,judge-v1a,242,0,False
+small,test_ood,none,judge-v1c,242,0,False
+small,test_heldout,retrieved,judge-v1a,1000,0,False
+small,test_heldout,none,judge-v1c,1000,0,False
+frontier,test_ood,retrieved,judge-v1b,242,0,False
+frontier,test_heldout,retrieved,judge-v1b,1000,0,False

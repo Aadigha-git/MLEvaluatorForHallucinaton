@@ -1,0 +1,4 @@
+split,source,planned,primary_api_failure,empty,answers,labeled,hallucinated,not_hallucinated,auto_labeled,hand_labeled,abstained,excluded_undecidable,excluded_total,exclusion_rate,flagged_over_5pct,resampling_tier_no_usable_resample,truncated_primary
+test_id,test_id,500,0,0,500,500,286,214,440,60,0,0,0,0.0,False,0,2
+test_ood,test_ood,242,0,0,242,242,78,164,113,129,0,0,0,0.0,False,0,0
+test_heldout,test_heldout,1000,0,0,1000,1000,205,795,1000,0,11,0,0,0.0,False,0,0
