@@ -1,0 +1,40 @@
+# Step 10: failure analysis and adversarial perturbation tests (exploratory; docs/SPEC.md build step 10).
+# Frozen by the 2026-10-20 amendment "Step 10 failure analysis and adversarial tests"; test splits
+# may be read. Any change needs a new amendment.
+
+status: frozen
+
+splits: [test_id, test_ood, test_heldout]
+
+failure_analysis:
+  tier: resampling
+  condition: retrieved
+  # An answer's prediction is the majority of the three training seeds' verdicts.
+  max_per_error_type: 50
+  # False positives are sampled with equal allocation across splits (any shortfall is filled from
+  # the other splits in `splits` order); all errors of a type are taken when there are no more
+  # than max_per_error_type.
+  sample_seed: 20261008
+  categories:
+    - retrieval_miss        # the retrieved passages lack the fact needed to check the answer
+    - paraphrase            # correct, but worded differently from the evidence
+    - hedged_or_abstained   # hedged or abstaining answer
+    - numeric_or_date       # a wrong number or date
+    - wrong_entity          # a wrong name or entity in otherwise matching wording
+    - partial               # a mix of correct and incorrect claims
+    - label_doubt           # the sorter doubts the label (labels are never changed)
+    - other                 # anything else; describe in notes
+  queue: data/audit/step10_failures.csv
+
+perturbation:
+  perturbations: [hedge_strip, hedge_insert, length_pad, truncate, entity_swap]
+  conditions: [retrieved, none]
+  entity_seed: 20261008
+  cache: data/features/step10_perturb_cache.sqlite
+  # Original answers re-extracted with a fresh cache, per split, to measure recomputation drift.
+  recompute_check_per_split: 50
+  bootstrap: {replicates: 10000, seed: 20261008, seed_stride: 10000000, chunk: 500}
+
+paths:
+  reports: reports/step10
+  stand_in_reports: data/step10_stand_in

@@ -1107,3 +1107,67 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
       complete.
   - **Unchanged:** the research questions, criteria, hypothesis tiers, metrics, thresholds,
     artifacts, judge models, prompts, and settings.
+- **2026-10-20, Step 10 failure analysis and adversarial tests (exploratory; recorded after Step 9
+  was scored and before any Step 10 analysis ran on a test split).** These are the "failure
+  analysis and adversarial perturbations" listed under "Exploratory". No outcome is declared, and
+  nothing here changes a Step 9 result. Settings are in `configs/step10.yaml`. The code is
+  `ml/evaluation/step10.py` and `src/hdetect/evaluation/perturb.py`, dry-run on `val_id` stand-ins.
+  - **Failure analysis, chosen by the project owner.**
+    - **Model.** The primary classifier only: resampling tier, retrieved evidence, on all three
+      test splits. An answer's prediction is the majority verdict of the three training seeds.
+    - **Errors available.** After Step 9 scoring, the errors were counted only, never read:
+      1,152 false positives (213 `test_id`, 145 `test_ood`, 794 `test_heldout`) and 4 false
+      negatives (3 and 1). The classifier flags nearly every answer, so false negatives are rare.
+    - **Sample.** All 4 false negatives are taken. 50 false positives are drawn by seeded simple
+      random sampling (seed 20261008) with equal allocation across splits: 17, 17, and 16.
+    - **Categories, fixed before any sorting.** One primary category per answer:
+      - `retrieval_miss`: the retrieved passages lack the fact needed;
+      - `paraphrase`: correct, but worded differently from the evidence;
+      - `hedged_or_abstained`;
+      - `numeric_or_date`;
+      - `wrong_entity`;
+      - `partial`: a mix of correct and incorrect claims;
+      - `label_doubt`: the sorter doubts the label;
+      - `other`, with a note.
+      `label_doubt` is counted and reported, but no label is ever changed.
+    - **Sorting file.** The project owner sorts `data/audit/step10_failures.csv` (git-ignored).
+      It shows each answer's question, answer, final label and its source, references, gold
+      evidence, retrieved passages, calibrated P, and feature values.
+    - **Reporting.** Counts per category, by error type, split, and generator. Worked examples
+      stay in the private file, because answer text is never committed.
+  - **Adversarial tests, chosen by the project owner: rule-based only, no API calls.**
+    - **Perturbations**, applied to every evaluated test answer:
+      - `hedge_strip`: remove every `hedges-v1` phrase;
+      - `hedge_insert`: prefix "I think ";
+      - `length_pad`: append the content-free sentence "Let me know if you have any other
+        questions.";
+      - `truncate`: keep the first sentence (the feature splitter), when there are at least two;
+      - `entity_swap`: replace every occurrence of the answer's first capitalized run that does
+        not start a sentence and does not appear in the question. The replacement is drawn from
+        such runs in other answers of the same split, seeded by 20261008 and the answer ID.
+    - A perturbation that does not change the answer is "not applicable" and counted.
+    - **Recomputation.** Only the answer changes. The question, retrieved passages, and resamples
+      stay fixed, since retrieval depends on the question only. Features are recomputed for the
+      perturbed answer with the frozen feature models and versions, into a separate cache.
+      - Original answers are scored with their frozen feature values.
+      - For 50 original answers per split, features are also recomputed, and the drift is
+        reported.
+    - **Evaluators.** The frozen classifiers (both tiers, retrieved and no evidence) and each
+      tier's best single feature. Resampling-tier rows need at least one usable resample.
+    - **Measures**, per split, condition, tier, evaluator, and perturbation:
+      - the number of applicable answers;
+      - the seed-averaged verdict flip rate, with a 95% cluster-bootstrap interval (10,000
+        replicates; split k uses seed 20261008 + k × 10,000,000);
+      - flips toward and away from "hallucinated";
+      - the predicted-hallucinated share before and after;
+      - the mean change in uncalibrated score;
+      - for the classifier, the share of answers whose policy band changes (seed-20261008
+        artifact).
+    - No labels are used. An entity swap makes most answers wrong, so its flip-to-hallucinated
+      rate is the share of injected errors caught, not a measure of brittleness.
+  - **Outputs.**
+    - `reports/step10/` holds counts and rates only, plus manifests and data-access lists. No
+      file there is overwritten.
+    - Dry runs write to `data/step10_stand_in/` (git-ignored).
+    - `configs/step10.yaml` moves to `status: frozen` on approval, and its SHA-256 is recorded in
+      the freezing commit.
