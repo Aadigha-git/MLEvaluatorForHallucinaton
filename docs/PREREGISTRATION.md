@@ -1191,3 +1191,40 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
     - The confusion counts between passes.
   - **Effect on results.** The second-pass labels are used only for this agreement statistic.
     No label used anywhere else is changed, and no reported result is recomputed.
+- **2026-10-23, demo configuration and explanation spec (build steps 12–13; not evidence).**
+  Recorded before any demo code was written. The demo illustrates the system. Nothing it shows is
+  evidence for either research question, and no reported result depends on it. Settings are in
+  `configs/demo.yaml`. The project owner chose:
+  - **Classifier.** The frozen single-shot, retrieved-evidence artifact for seed 20261008. It uses
+    that artifact's F1 threshold, calibrator, and policy thresholds. No other seed or tier runs live.
+  - **Chatbot.** Model A on Nebius with the primary-answer settings and the `qa-v1` prompt. Calls are
+    capped at $0.50 in total, rebuilt from a call log.
+  - **Questions.**
+    - 200 HaluEval QA questions never sampled into any split, drawn with seed 20261008 from the
+      pinned raw file.
+    - Plus a short list of trap questions with reference answers, in
+      `demo/trap_questions.jsonl`, reviewed by the project owner before the recorded demo.
+    - A catch rate on the trap questions may be shown, as an illustration only.
+  - **Evidence.** BM25 retrieval over the same Wiki-DPR index, with the question as query and the
+    top 5 passages, as in Step 5.
+  - **Thresholds.** The dashboard starts at the frozen policy. On the test splits that policy
+    accepted almost nothing, so most demo answers are expected to be flagged or escalated, and the
+    dashboard says so. Sliders may move the two thresholds for display only. Any slider setting is
+    labeled an illustration, and the scoring service never changes.
+  - **Explanation generator** (deferred in Step 7).
+    - For each feature f, Δf = s(x) − s(x with f replaced by its `val_id` median), where s is the
+      artifact's uncalibrated score. The medians come from the 995 labeled `val_id` answers.
+    - For a flag or escalate verdict, the two features with the largest positive Δ are named. For
+      an accept verdict, the two with the most negative Δ are named. If no Δ is nonzero, the text
+      says no single feature stands out.
+    - Each named feature gets a template phrase with its value and the `val_id` median. Example:
+      "word overlap with the evidence is lower than typical (0.12 vs 0.45)".
+    - The text describes what moved the classifier's score. It is not a reason the answer is wrong,
+      and the dashboard says so.
+  - **Events.**
+    - Versioned JSON (`demo-event-v1`). Each event carries the question ID, the generator model,
+      the tier, the evidence condition, and the classifier, calibration, and threshold versions
+      (artifact SHA-256 and seed).
+    - It also carries a timestamp for each stage: produced, answered, scored, and displayed.
+    - Verdict events also carry the calibrated P, the band, the explanation, the feature values,
+      and the chatbot call's cost.

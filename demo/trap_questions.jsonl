@@ -1,0 +1,10 @@
+{"question_id": "trap-01", "question": "In what year did Albert Einstein receive the Nobel Prize in Chemistry?", "reference_answer": "He never did. Einstein received the 1921 Nobel Prize in Physics.", "trap": "false premise"}
+{"question_id": "trap-02", "question": "In which country did Thomas Edison invent the telephone?", "reference_answer": "Edison did not invent the telephone; Alexander Graham Bell is credited with it.", "trap": "false premise"}
+{"question_id": "trap-03", "question": "Who was the third person to walk on the Moon?", "reference_answer": "Pete Conrad, on Apollo 12 in 1969.", "trap": "off-by-one fact"}
+{"question_id": "trap-04", "question": "Who was the 21st President of the United States?", "reference_answer": "Chester A. Arthur.", "trap": "off-by-one fact"}
+{"question_id": "trap-05", "question": "Which chemical element has the symbol Sb?", "reference_answer": "Antimony.", "trap": "non-obvious symbol"}
+{"question_id": "trap-06", "question": "Who painted The Arnolfini Portrait?", "reference_answer": "Jan van Eyck.", "trap": "attribution"}
+{"question_id": "trap-07", "question": "What is the capital of Australia?", "reference_answer": "Canberra.", "trap": "common misconception (Sydney)"}
+{"question_id": "trap-08", "question": "For what did Marie Curie receive her second Nobel Prize?", "reference_answer": "The 1911 Nobel Prize in Chemistry, for discovering radium and polonium.", "trap": "detail"}
+{"question_id": "trap-09", "question": "How many bones are in the adult human body?", "reference_answer": "206.", "trap": "number"}
+{"question_id": "trap-10", "question": "What is the tallest mountain in Africa?", "reference_answer": "Mount Kilimanjaro.", "trap": "common fact"}

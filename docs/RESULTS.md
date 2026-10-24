@@ -265,14 +265,18 @@ Either of these would need a new preregistration, not an amendment to this one.
 
 This item does not change any result above.
 
-1. **Build steps 12–13 (demo, not evidence).**
-   - Step 12: the scoring service with the versioned event schema, the Spring Boot producer, and
-     the Kafka wiring.
-   - Step 13: dashboard v1, seeded trap questions, and the recorded demo.
-
-   docs/SPEC.md treats the demo as an illustration with no ground truth, not as evidence for
-   either research question. The explanation generator deferred in Step 7 needs its own
-   specification before the dashboard shows explanations.
+1. **Demo (build steps 12–13; an illustration, not evidence).**
+   - Built, per the amendment of 2026-10-23:
+     - the scoring service (`scripts/demo_scorer.py`, `src/hdetect/service/`) with the
+       `demo-event-v1` schema and template explanations;
+     - Kafka in Docker (`demo/docker-compose.yml`);
+     - one Spring Boot app (`demo/app/`) with the question producer, the verdict relay, and
+       dashboard v1.
+   - Still to do:
+     - the project owner reviews the trap questions (`demo/trap_questions.jsonl`);
+     - record the demo.
+   - docs/SPEC.md treats the demo as an illustration with no ground truth. As expected from the
+     test results, the frozen policy flags nearly every demo answer.
 
 ## Addendum, 2026-10-23: hand-label consistency (preregistered)
 

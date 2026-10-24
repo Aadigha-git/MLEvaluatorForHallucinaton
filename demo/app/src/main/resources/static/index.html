@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Hallucination net: live demo</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="title">
+    <h1>Hallucination net</h1>
+    <span id="conn" class="conn off">Kafka: checking</span>
+  </div>
+  <div class="sliders">
+    <label>accept / escalate <input id="tLow" type="range" min="0" max="1" step="0.001"><output id="tLowOut"></output></label>
+    <label>escalate / flag <input id="tHigh" type="range" min="0" max="1" step="0.001"><output id="tHighOut"></output></label>
+    <button id="reset">frozen policy</button>
+    <span id="policyNote" class="note"></span>
+  </div>
+  <div class="controls">
+    <button id="start">start stream</button>
+    <button id="stop">stop</button>
+  </div>
+</header>
+
+<p class="banner">
+  Illustration, not evidence. Frozen single-shot classifier (retrieved evidence, seed 20261008). On the
+  test splits it flagged nearly every answer; see docs/RESULTS.md. Explanations say what moved the score,
+  not why an answer is wrong.
+</p>
+
+<section id="ticker">
+  <div><span class="big" id="nVerdicts">0</span><span class="label">verdicts</span></div>
+  <div><span class="big" id="judgeAll">$0.0000</span><span class="label">judge on everything (Gemini)</span></div>
+  <div><span class="big" id="netCost">$0.0000</span><span class="label">net: judge only escalations (Gemini)</span></div>
+  <div class="small" id="nemotron"></div>
+</section>
+
+<main>
+  <section id="feed"></section>
+  <aside id="detail"><p class="muted">Select a row for its answer, evidence, and feature values.</p></aside>
+</main>
+
+<footer id="summary">
+  <div class="counts"><span class="accept">accept <b id="cAccept">0</b></span><span class="flag">flag <b id="cFlag">0</b></span><span class="escalate">escalate <b id="cEscalate">0</b></span></div>
+  <div class="bar"><div id="bAccept" class="accept"></div><div id="bFlag" class="flag"></div><div id="bEscalate" class="escalate"></div></div>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

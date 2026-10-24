@@ -1,0 +1,29 @@
+# Values mirror configs/demo.yaml (topics, delays) and reports/step9/cost_latency.csv (judge costs).
+server:
+  port: 8080
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: hdetect-dashboard
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+demo:
+  schema-version: demo-event-v1
+  questions-topic: questions.v1
+  verdicts-topic: verdicts.v1
+  questions-file: ../../data/demo/questions.jsonl
+  min-delay-ms: 1500
+  max-delay-ms: 4000
+  # Incremental judge cost per verdict, retrieved evidence, Step 9 test splits (reports/step9/cost_latency.csv):
+  # Gemini: 242 x $0.00513 (test_ood) and 1000 x $0.00415 (test_heldout), weighted mean;
+  # Nemotron: $0.000056-$0.000060 across the three splits.
+  judge-cost-usd:
+    gemini: 0.00434
+    nemotron: 0.000058

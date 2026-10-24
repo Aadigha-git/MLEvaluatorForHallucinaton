@@ -1,0 +1,36 @@
+# Live demo (docs/SPEC.md build steps 12-13; amendment 2026-10-23 "Demo configuration and explanation
+# spec"). The demo illustrates the system; it is not evidence for either research question.
+
+schema_version: demo-event-v1
+
+kafka:
+  bootstrap_servers: localhost:9092
+  questions_topic: questions.v1
+  verdicts_topic: verdicts.v1
+  scorer_group_id: hdetect-scorer
+
+classifier:
+  tier: single_shot
+  condition: retrieved
+  seed: 20261008
+  artifact: data/models/step7/single_shot__retrieved__seed20261008.joblib
+
+chatbot:
+  generator: model_a          # configs/generation.yaml; primary-answer settings, prompt qa-v1
+  prompt_version: qa-v1
+  budget_usd: 0.50            # all demo chatbot calls, rebuilt from the call log
+  call_log: data/demo/chatbot_calls.jsonl
+
+explanation:
+  top_k: 2
+  reference: val_id medians of the retrieved-evidence features (995 labeled answers)
+
+questions:
+  out: data/demo/questions.jsonl
+  halueval_unsampled: 200     # seeded sample of HaluEval QA questions never sampled into any split
+  seed: 20261008
+  traps: demo/trap_questions.jsonl
+
+producer:
+  min_delay_ms: 1500
+  max_delay_ms: 4000
