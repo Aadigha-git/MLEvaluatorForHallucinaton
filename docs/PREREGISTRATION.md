@@ -1171,3 +1171,23 @@ A "no" or "mixed" against these criteria is a legitimate headline and will be re
     - Dry runs write to `data/step10_stand_in/` (git-ignored).
     - `configs/step10.yaml` moves to `status: frozen` on approval, and its SHA-256 is recorded in
       the freezing commit.
+- **2026-10-23, hand-label consistency check details (recorded before the sample was drawn).**
+  "Labeling commitments" requires 50 hand-labeled unresolved answers to be labeled again at least
+  two weeks later, with Cohen's kappa reported. It does not fix the pool, the draw, or how
+  `undecidable` counts. The project owner chose:
+  - **Pool.** The development queue, `data/audit/unresolved_dev_v2_blind.csv`: 425 hand-labeled
+    answers (330 TruthfulQA from `train`, 95 HaluEval from `val_id`), last saved 2026-10-09, 14
+    days before the draw. The test queue is not used.
+  - **Draw.** 50 answers, allocated to datasets in proportion to the pool (largest remainder: 39
+    TruthfulQA, 11 HaluEval), then a seeded simple random sample within each dataset (seed
+    20261008), and shuffled. Code: `scripts/consistency_check.py`.
+  - **Blinding.** `data/audit/consistency_dev_v2_blind.csv` (git-ignored) shows the same fields as
+    the first pass. It shows neither the earlier hand label nor the automatic label.
+  - **Categories.** `undecidable` is a third category. Answers first marked undecidable can be
+    drawn. Kappa is computed over hallucinated, not_hallucinated, and undecidable.
+  - **Statistics.**
+    - Cohen's kappa and raw agreement, overall and per dataset.
+    - 95% percentile bootstrap intervals resampling questions (10,000 replicates, seed 20261008).
+    - The confusion counts between passes.
+  - **Effect on results.** The second-pass labels are used only for this agreement statistic.
+    No label used anywhere else is changed, and no reported result is recomputed.
