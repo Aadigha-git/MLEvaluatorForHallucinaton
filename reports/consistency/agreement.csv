@@ -1,0 +1,4 @@
+dataset,n,n_questions,raw_agreement,kappa,kappa_ci_low,kappa_ci_high,skipped_replicates
+all,50,50,0.56,0.198251,-0.02565,0.421598,0
+halueval,11,11,0.545455,0.035088,-0.375,0.56,1
+truthfulqa,39,39,0.564103,0.237054,-0.007603,0.477343,0

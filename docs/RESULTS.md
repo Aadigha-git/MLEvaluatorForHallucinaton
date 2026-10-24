@@ -224,6 +224,9 @@ binary predictions; failures count as wrong.
 
 ## Limitations and deviations
 
+- **Hand labels are inconsistent.** The labeler disagreed with their own earlier hand labels on 22
+  of 50 answers: Cohen's kappa 0.198 [−0.026, 0.422]. Hand labels make up 53% of `train` and
+  `test_ood` labels. See the 2026-10-23 addendum at the end.
 - **HaluEval labels failed the hand-audit agreement gate** (Cohen's kappa 0.7117 in the first round
   and 0.578 under rule version 2, against a minimum of 0.6). This affects `val_id`, where every
   threshold and calibrator was set, and `test_id`, the RQ2 reference.
@@ -260,12 +263,9 @@ Either of these would need a new preregistration, not an amendment to this one.
 
 ## Remaining work (separate from these results)
 
-These items do not change any result above.
+This item does not change any result above.
 
-1. **Hand-label consistency check (preregistered).** 50 hand-labeled unresolved answers are labeled
-   again, blind, at least two weeks after the first labeling (possible from about 2026-10-23).
-   Cohen's kappa is then reported as an addendum to this document.
-2. **Build steps 12–13 (demo, not evidence).**
+1. **Build steps 12–13 (demo, not evidence).**
    - Step 12: the scoring service with the versioned event schema, the Spring Boot producer, and
      the Kafka wiring.
    - Step 13: dashboard v1, seeded trap questions, and the recorded demo.
@@ -273,3 +273,64 @@ These items do not change any result above.
    docs/SPEC.md treats the demo as an illustration with no ground truth, not as evidence for
    either research question. The explanation generator deferred in Step 7 needs its own
    specification before the dashboard shows explanations.
+
+## Addendum, 2026-10-23: hand-label consistency (preregistered)
+
+**The hand labels are not reliable.** Re-labeling 50 of them blind, two weeks later, gave Cohen's
+kappa 0.198 (95% CI −0.026 to 0.422) over three categories. The two passes agreed on 28 of 50
+answers.
+
+- **Procedure** (amendment 2026-10-23, `reports/consistency/`).
+  - 50 answers were drawn from the 425-answer development hand-labeling queue: 39 TruthfulQA from
+    `train` and 11 HaluEval from `val_id`.
+  - They were stratified by dataset, seeded, and labeled again blind 14 days after the first pass.
+  - `undecidable` is a third category.
+  - The interval comes from a 10,000-replicate bootstrap over questions.
+- **Agreement.**
+
+  | Dataset | n | Raw agreement | Kappa [95% CI] |
+  |---|---|---|---|
+  | all | 50 | 0.560 | 0.198 [−0.026, 0.422] |
+  | TruthfulQA | 39 | 0.564 | 0.237 [−0.008, 0.477] |
+  | HaluEval | 11 | 0.545 | 0.035 [−0.375, 0.560] |
+
+  For HaluEval, with 11 answers, the interval is very wide, and 1 of the 10,000 replicates had an
+  undefined kappa.
+- **Where the passes disagreed.**
+
+  | Change between passes | Answers |
+  |---|---|
+  | hallucinated → not_hallucinated | 10 |
+  | undecidable → not_hallucinated | 5 |
+  | not_hallucinated → hallucinated | 4 |
+  | hallucinated → undecidable | 1 |
+  | not_hallucinated → undecidable | 1 |
+  | undecidable → hallucinated | 1 |
+
+  The second pass labeled more answers not hallucinated than the first.
+
+  | Label | First pass | Second pass |
+  |---|---|---|
+  | hallucinated | 16 | 10 |
+  | not_hallucinated | 26 | 36 |
+  | undecidable | 8 | 4 |
+- **What this affects.** Hand labels cover a different share of each split's labeled answers:
+
+  | Split | Hand-labeled share |
+  |---|---|
+  | `train` | 53% (277 of 522) |
+  | `test_ood` | 53% (129 of 242) |
+  | `test_id` | 12% (60 of 500) |
+  | `val_id` | 9% (90 of 995) |
+  | `test_heldout` | 0% (FEVER labels are all automatic) |
+
+  The re-labeled sample comes from the development queue only, so it does not measure the test
+  queue directly. The same person labeled both queues under the same rules, so `train` and
+  `test_ood` should be treated as carrying substantial label noise.
+- **What it does not change.**
+  - No label was edited, and no result was recomputed. The preregistration requires only that
+    kappa be reported, and it sets no gate for this check.
+  - The research-question outcomes stand as scored, but this caveat applies to them.
+  - Noisy training labels can weaken any classifier. Noisy `test_ood` labels make every `test_ood`
+    comparison less precise, including the one RQ1 pass, which was already caveated above.
+  - These results cannot say how much of the negative result is due to label noise.

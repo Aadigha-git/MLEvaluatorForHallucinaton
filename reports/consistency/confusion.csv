@@ -1,0 +1,10 @@
+first,second,n
+hallucinated,hallucinated,5
+hallucinated,not_hallucinated,10
+hallucinated,undecidable,1
+not_hallucinated,hallucinated,4
+not_hallucinated,not_hallucinated,21
+not_hallucinated,undecidable,1
+undecidable,hallucinated,1
+undecidable,not_hallucinated,5
+undecidable,undecidable,2
